@@ -20,17 +20,24 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="tab1"
+        name="leagues"
         options={{
-          title: 'Tab 1',
-          tabBarIcon: ({ color }) => <TabBarIcon name="star-o" color={color} />,
+          title: 'Leagues',
+          tabBarIcon: ({ color }) => <TabBarIcon name="trophy" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="tab2"
+        name="players"
         options={{
-          title: 'Tab 2',
-          tabBarIcon: ({ color }) => <TabBarIcon name="star-o" color={color} />,
+          title: 'Players',
+          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="matches"
+        options={{
+          title: 'Matches',
+          tabBarIcon: ({ color }) => <TabBarIcon name="handshake-o" color={color} />,
         }}
       />
     </Tabs>
