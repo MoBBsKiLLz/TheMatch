@@ -11,17 +11,17 @@ export default function Home() {
   const colorScheme = useColorScheme();
 
   const heroSource = colorScheme === "dark"
-    ? require("@/assets/images/hero.png")
-    : require("@/assets/images/hero_blue.png");
+    ? require("@/assets/images/hero_alt_dark.png")
+    : require("@/assets/images/hero_alt_light.png");
 
   return (
     <ImageBackground source={heroSource} style={{ flex: 1 }} resizeMode="cover">
-      <Box className="flex-1 bg-black/40 justify-center items-center px-6 w-full">
-        <Text className="text-4xl font-bold text-white text-center">
+      <Box className="flex-1 bg-black/5 justify-center items-center px-6 w-full">
+        <Text className="text-4xl font-bold text-center">
           The Match
         </Text>
 
-        <Text className="text-white text-center mt-4 opacity-90">
+        <Text className="text-center mt-4 opacity-90">
           Manage leagues, create teams, and schedule games — all in one place.
         </Text>
 
