@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { RefreshControl } from "react-native";
+import React, { useCallback, useState } from "react";
+import { RefreshControl, Alert, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { VStack } from "@/components/ui/vstack";
@@ -11,10 +11,11 @@ import { Fab, FabIcon } from "@/components/ui/fab";
 import { AddIcon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect, Href } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { League } from "@/types/league";
-import { useFocusEffect } from "expo-router";
+import { remove } from "@/lib/db/queries";
+import { Menu, MenuItem, MenuItemLabel } from "@/components/ui/menu";
 
 export default function Leagues() {
   const router = useRouter();
@@ -51,6 +52,38 @@ export default function Leagues() {
   const onRefresh = () => {
     setRefreshing(true);
     fetchLeagues();
+  };
+
+  const handleDelete = (league: League) => {
+    Alert.alert(
+      "Delete league",
+      `Are you sure you want to delete ${league.name}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            if (!db) return;
+            try {
+              await remove(db, "league", league.id);
+              fetchLeagues();
+            } catch (error) {
+              console.error("Failed to delete league: ", error);
+              Alert.alert("Error", "Failed to delete league");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleEdit = (league: League) => {
+    router.push(`/leagues/new?id=${league.id}&mode=edit` as Href);
+  };
+
+  const handleView = (league: League) => {
+    router.push(`/leagues/${league.id}` as Href);
   };
 
   if (dbLoading || isLoading) {
@@ -99,35 +132,59 @@ export default function Leagues() {
           ) : (
             <VStack space="md">
               {leagues.map((league) => (
-                <Card
+                <Menu
                   key={league.id}
-                  size="md"
-                  variant="elevated"
-                  className="p-4 border border-neutral-400"
-                >
-                  <VStack space="md">
-                    <VStack space="xs">
-                      <Heading size="lg" className="text-typography-900">
-                        {league.name}
-                      </Heading>
-                      {getLeagueDetails(league) && (
-                        <Text size="sm" className="text-typography-500">
-                          {getLeagueDetails(league)}
-                        </Text>
-                      )}
-                    </VStack>
+                  placement="bottom"
+                  trigger={({ ...triggerProps }) => (
+                    <Pressable { ...triggerProps }>
+                      <Card
+                        key={league.id}
+                        size="md"
+                        variant="elevated"
+                        className="p-4 border border-neutral-400"
+                      >
+                        <VStack space="md">
+                          <VStack space="xs">
+                            <Heading size="lg" className="text-typography-900">
+                              {league.name}
+                            </Heading>
+                            {getLeagueDetails(league) && (
+                              <Text size="sm" className="text-typography-500">
+                                {getLeagueDetails(league)}
+                              </Text>
+                            )}
+                          </VStack>
 
-                    <Button
-                      size="sm"
-                      action="primary"
-                      onPress={() =>
-                        router.push(`/(tabs)/leagues/${league.id}`)
-                      }
-                    >
-                      <ButtonText>View League</ButtonText>
-                    </Button>
-                  </VStack>
-                </Card>
+                          <Button
+                            size="sm"
+                            action="primary"
+                            onPress={() => handleView(league)}
+                          >
+                            <ButtonText>View League</ButtonText>
+                          </Button>
+                          <Text size="sm" className="text-typography-400 text-center mt-2">
+                            Long press for more options
+                          </Text>
+                        </VStack>
+                      </Card>
+                    </Pressable>
+                  )}
+                >
+                <MenuItem
+                    key="edit"
+                    textValue="Edit"
+                    onPress={() => handleEdit(league)}
+                  >
+                    <MenuItemLabel>Edit League</MenuItemLabel>
+                  </MenuItem>
+                  <MenuItem
+                    key="delete"
+                    textValue="Delete"
+                    onPress={() => handleDelete(league)}
+                  >
+                    <MenuItemLabel className="text-error-500">Delete League</MenuItemLabel>
+                  </MenuItem>
+                </Menu>
               ))}
             </VStack>
           )}
