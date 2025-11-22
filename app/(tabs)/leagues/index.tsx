@@ -66,7 +66,7 @@ export default function Leagues() {
           onPress: async () => {
             if (!db) return;
             try {
-              await remove(db, "league", league.id);
+              await remove(db, "leagues", league.id);
               fetchLeagues();
             } catch (error) {
               console.error("Failed to delete league: ", error);

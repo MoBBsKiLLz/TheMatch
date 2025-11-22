@@ -1,16 +1,15 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert } from "react-native";
 import { SafeAreaView } from "@/components/ui/safe-area-view";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { VStack } from "@/components/ui/vstack";
-import { HStack } from "@/components/ui/hstack";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
 import { Divider } from "@/components/ui/divider";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { findById, remove } from "@/lib/db/queries";
 import { League } from "@/types/league";
@@ -21,8 +20,9 @@ export default function LeagueDetails() {
   const [league, setLeague] = useState<League | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchLeague() {
+  const fetchLeagues = async () => {
+      if (!db) return;
+  
       if (!db || !id) return;
 
       try {
@@ -33,10 +33,16 @@ export default function LeagueDetails() {
       } finally {
         setIsLoading(false);
       }
-    }
-
-    fetchLeague();
-  }, [db, id]);
+    };
+  
+    useFocusEffect(
+      useCallback(() => {
+        if (db) {
+          setIsLoading(true);
+          fetchLeagues();
+        }
+      }, [db])
+    );
 
   const handleDelete = () => {
     Alert.alert(
