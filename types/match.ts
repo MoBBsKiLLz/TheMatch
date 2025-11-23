@@ -7,3 +7,11 @@ export type Match = {
     leagueId: number;
     createdAt: number;
 }
+
+export type MatchWithDetails = Match & {
+    playerAFirstName: string;
+    playerALastName: string;
+    playerBFirstName: string;
+    playerBLastName: string;
+    leagueName: string;
+}

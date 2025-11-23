@@ -1,4 +1,5 @@
 import { Database } from './client';
+import { insert, remove } from './queries';
 import { PlayerLeague } from '@/types/playerLeague';
 
 export async function addPlayerToLeague(
@@ -16,11 +17,13 @@ export async function addPlayerToLeague(
     return; // Already enrolled
   }
 
-  await db.run(
-    `INSERT INTO player_leagues (playerId, leagueId, wins, losses)
-     VALUES (?, ?, 0, 0)`,
-    [playerId, leagueId]
-  );
+  // Use insert helper
+  await insert(db, 'player_leagues', {
+    playerId,
+    leagueId,
+    wins: 0,
+    losses: 0,
+  });
 }
 
 export async function removePlayerFromLeague(
@@ -28,10 +31,15 @@ export async function removePlayerFromLeague(
   playerId: number,
   leagueId: number
 ): Promise<void> {
-  await db.run(
-    'DELETE FROM player_leagues WHERE playerId = ? AND leagueId = ?',
+  // We need to find the record ID first since remove() expects an ID
+  const record = await db.get<{ id: number }>(
+    'SELECT id FROM player_leagues WHERE playerId = ? AND leagueId = ?',
     [playerId, leagueId]
   );
+
+  if (record) {
+    await remove(db, 'player_leagues', record.id);
+  }
 }
 
 export async function getLeaguePlayers(db: Database, leagueId: number) {

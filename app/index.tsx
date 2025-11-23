@@ -4,7 +4,7 @@ import { Box } from "@/components/ui/box";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 import { useRouter } from "expo-router";
-import { useColorScheme } from "@/components/useColorScheme";
+import { useColorScheme } from "react-native";
 
 export default function Home() {
   const router = useRouter();
