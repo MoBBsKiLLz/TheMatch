@@ -64,6 +64,8 @@ PODS:
     - Yoga
   - ExpoSplashScreen (31.0.10):
     - ExpoModulesCore
+  - ExpoSQLite (16.0.9):
+    - ExpoModulesCore
   - ExpoSystemUI (6.0.8):
     - ExpoModulesCore
   - ExpoWebBrowser (15.0.9):
@@ -1770,6 +1772,28 @@ PODS:
     - React-utils (= 0.81.4)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.81.4)
+  - RNGestureHandler (2.29.1):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - RNReanimated (4.1.5):
     - hermes-engine
     - RCTRequired
@@ -2020,6 +2044,7 @@ DEPENDENCIES:
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
+  - ExpoSQLite (from `../node_modules/expo-sqlite/ios`)
   - ExpoSystemUI (from `../node_modules/expo-system-ui/ios`)
   - ExpoWebBrowser (from `../node_modules/expo-web-browser/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
@@ -2090,6 +2115,7 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
+  - RNGestureHandler (from `../node_modules/react-native-gesture-handler`)
   - RNReanimated (from `../node_modules/react-native-reanimated`)
   - RNScreens (from `../node_modules/react-native-screens`)
   - RNSVG (from `../node_modules/react-native-svg`)
@@ -2117,6 +2143,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
+  ExpoSQLite:
+    :path: "../node_modules/expo-sqlite/ios"
   ExpoSystemUI:
     :path: "../node_modules/expo-system-ui/ios"
   ExpoWebBrowser:
@@ -2256,6 +2284,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+  RNGestureHandler:
+    :path: "../node_modules/react-native-gesture-handler"
   RNReanimated:
     :path: "../node_modules/react-native-reanimated"
   RNScreens:
@@ -2278,6 +2308,7 @@ SPEC CHECKSUMS:
   ExpoLinking: f6972f1f79c1170ace86f7ded582918bd6c2843c
   ExpoModulesCore: 9847d3ba3d6b9203c7a827acd2b98387907954a2
   ExpoSplashScreen: aaf004632a5867ec3e71911e5e1459e3d4beb320
+  ExpoSQLite: e4cc50a1e57886cb335b3f408d20b76332016963
   ExpoSystemUI: 99ed6971cde8e23ec491543fb88f8d5a34201243
   ExpoWebBrowser: 16b7335a50327f8f0f2fc244d395ccf4006c20cd
   FBLazyVector: 9e0cd874afd81d9a4d36679daca991b58b260d42
@@ -2347,6 +2378,7 @@ SPEC CHECKSUMS:
   ReactCodegen: c7382a9d84b5826fec1441c7eec6e424499bc8c0
   ReactCommon: b720ccad5e1e8a528746c39b671825fcb7207d3c
   ReactNativeDependencies: ed6d1e64802b150399f04f1d5728ec16b437251e
+  RNGestureHandler: 8d650b1fabb2a5b1d7069bfc42c325b7e450c918
   RNReanimated: 00771d2ba7c810124852092eb29c0d1edf50cc58
   RNScreens: dd61bc3a3e6f6901ad833efa411917d44827cf51
   RNSVG: a97976dfa46d3edffa2c6ef5837b16fe8e031375
