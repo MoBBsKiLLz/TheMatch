@@ -3,46 +3,65 @@ import { Alert } from "react-native";
 import { SafeAreaView } from "@/components/ui/safe-area-view";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { VStack } from "@/components/ui/vstack";
+import { HStack } from "@/components/ui/hstack";
 import { Heading } from "@/components/ui/heading";
 import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
+import { Card } from '@/components/ui/card';
 import { Divider } from "@/components/ui/divider";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { findById, remove } from "@/lib/db/queries";
 import { League } from "@/types/league";
+import {
+  getLeaguePlayers,
+  removePlayerFromLeague,
+} from "@/lib/db/playerLeagues";
 
 export default function LeagueDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { db } = useDatabase();
   const [league, setLeague] = useState<League | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [leaguePlayers, setLeaguePlayers] = useState<
+    {
+      id: number;
+      firstName: string;
+      lastName: string;
+      wins: number;
+      losses: number;
+      playerLeagueId: number;
+    }[]
+  >([]);
 
-  const fetchLeagues = async () => {
-      if (!db) return;
-  
-      if (!db || !id) return;
+  const fetchLeague = async () => {
+    if (!db || !id) return;
 
-      try {
-        const result = await findById<League>(db, "leagues", Number(id));
-        setLeague(result);
-      } catch (error) {
-        console.error("Failed to fetch league:", error);
-      } finally {
-        setIsLoading(false);
+    try {
+      setIsLoading(true);
+      const result = await findById<League>(db, "leagues", Number(id));
+      setLeague(result);
+
+      // Fetch league players
+      const players = await getLeaguePlayers(db, Number(id));
+      setLeaguePlayers(players);
+    } catch (error) {
+      console.error("Failed to fetch league:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (db) {
+        setIsLoading(true);
+        fetchLeague();
       }
-    };
-  
-    useFocusEffect(
-      useCallback(() => {
-        if (db) {
-          setIsLoading(true);
-          fetchLeagues();
-        }
-      }, [db])
-    );
+    }, [db])
+  );
 
   const handleDelete = () => {
     Alert.alert(
@@ -77,6 +96,26 @@ export default function LeagueDetails() {
 
   const handleEdit = () => {
     router.push(`/leagues/new?id=${id}&mode=edit`);
+  };
+
+  const handleRemovePlayer = (playerId: number, playerName: string) => {
+    Alert.alert("Remove Player", `Remove ${playerName} from this league?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: async () => {
+          if (!db || !id) return;
+          try {
+            await removePlayerFromLeague(db, playerId, Number(id));
+            fetchLeague(); // Refresh
+          } catch (error) {
+            console.error("Failed to remove player:", error);
+            Alert.alert("Error", "Failed to remove player");
+          }
+        },
+      },
+    ]);
   };
 
   if (isLoading) {
@@ -166,34 +205,91 @@ export default function LeagueDetails() {
               )}
 
               <VStack space="xs">
-                  <Text size="sm" className="text-typography-500 font-medium">
-                    Created On
-                  </Text>
-                  <Text size="md" className="text-typography-900">
-                    {formatDate(league.createdAt)}
-                  </Text>
-                </VStack>
+                <Text size="sm" className="text-typography-500 font-medium">
+                  Created On
+                </Text>
+                <Text size="md" className="text-typography-900">
+                  {formatDate(league.createdAt)}
+                </Text>
+              </VStack>
             </VStack>
           </VStack>
 
           <Divider />
 
-          {/* Placeholder for future sections */}
-          <VStack space="md" className="py-4">
-              <Text className="text-center text-typography-400">
-                Players and matches coming soon!
-              </Text>
+          {/* Players Section */}
+          <VStack space="lg">
+            <HStack className="justify-between items-center">
+              <Heading size="lg" className="text-typography-800">
+                Players ({leaguePlayers.length})
+              </Heading>
+              <Button
+                size="sm"
+                action="secondary"
+                onPress={() => router.push(`/leagues/${id}/add-players`)}
+              >
+                <ButtonText className="text-typography-black">Add Players</ButtonText>
+              </Button>
+            </HStack>
+
+            {leaguePlayers.length === 0 ? (
+              <Center className="py-4">
+                <Text className="text-typography-400 text-center">
+                  No players in this league yet.
+                </Text>
+              </Center>
+            ) : (
+              <VStack space="md">
+                {leaguePlayers.map((player) => (
+                  <Card
+                    key={player.id}
+                    size="sm"
+                    variant="outline"
+                    className="p-3"
+                  >
+                    <HStack className="justify-between items-center">
+                      <VStack space="xs" className="flex-1">
+                        <Text className="text-typography-900 font-medium">
+                          {player.firstName} {player.lastName}
+                        </Text>
+                        <Text size="sm" className="text-typography-500">
+                          Record: {player.wins}W - {player.losses}L
+                        </Text>
+                      </VStack>
+                      <Button
+                        size="xs"
+                        variant="link"
+                        action="negative"
+                        onPress={() =>
+                          handleRemovePlayer(
+                            player.id,
+                            `${player.firstName} ${player.lastName}`
+                          )
+                        }
+                      >
+                        <ButtonText className="text-error-500">Remove</ButtonText>
+                      </Button>
+                    </HStack>
+                  </Card>
+                ))}
+              </VStack>
+            )}
           </VStack>
 
           {/* Action Buttons */}
           <VStack space="md" className="mt-4">
-              <Button action="primary" size="lg" onPress={handleEdit}>
-                <ButtonText>Edit League</ButtonText>
-              </Button>
+            <Button action="primary" size="lg" onPress={handleEdit}>
+              <ButtonText>Edit League</ButtonText>
+            </Button>
 
-              <Button action="negative" variant="link" size="lg" onPress={handleDelete}>
-                <ButtonText>Delete League</ButtonText>
-              </Button>
+            <Button
+              action="negative"
+              variant="link"
+              size="lg"
+              onPress={handleDelete}
+            >
+              <ButtonText>Delete League</ButtonText>
+            </Button>
           </VStack>
         </VStack>
       </ScrollView>

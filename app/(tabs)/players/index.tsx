@@ -237,7 +237,7 @@ export default function Players() {
                     textValue="Delete"
                     onPress={() => handleDelete(player)}
                   >
-                    <MenuItemLabel>Delete Player</MenuItemLabel>
+                    <MenuItemLabel className="text-error-500">Delete Player</MenuItemLabel>
                   </MenuItem>
                 </Menu>
               ))}

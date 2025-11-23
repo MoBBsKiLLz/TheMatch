@@ -1,41 +1,59 @@
-import React, { useState, useCallback } from "react";
-import { Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ScrollView } from "@/components/ui/scroll-view";
-import { VStack } from "@/components/ui/vstack";
-import { HStack } from "@/components/ui/hstack";
-import { Heading } from "@/components/ui/heading";
-import { Text } from "@/components/ui/text";
-import { Button, ButtonText } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
-import { Center } from "@/components/ui/center";
-import { Divider } from "@/components/ui/divider";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { useDatabase } from "@/lib/db/provider";
-import { findById, remove } from "@/lib/db/queries";
-import { Player } from "@/types/player";
+import React, { useState, useCallback } from 'react';
+import { Alert } from 'react-native';
+import { SafeAreaView } from '@/components/ui/safe-area-view';
+import { ScrollView } from '@/components/ui/scroll-view';
+import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import { Center } from '@/components/ui/center';
+import { Divider } from '@/components/ui/divider';
+import { router, useLocalSearchParams, useFocusEffect, Href } from 'expo-router';
+import { useDatabase } from '@/lib/db/provider';
+import { findById, remove } from '@/lib/db/queries';
+import { Player } from '@/types/player';
+import { getPlayerLeagues, removePlayerFromLeague } from '@/lib/db/playerLeagues';
+import { Icon } from '@/components/ui/icon';
+import { LogOut } from 'lucide-react-native';
 
 export default function PlayerDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { db } = useDatabase();
   const [player, setPlayer] = useState<Player | null>(null);
+  const [playerLeagues, setPlayerLeagues] = useState<{
+    id: number;
+    name: string;
+    season: string | null;
+    location: string | null;
+    wins: number;
+    losses: number;
+    playerLeagueId: number;
+  }[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch player data
+  // Fetch player data and their leagues
   const fetchPlayer = async () => {
     if (!db || !id) return;
 
     try {
       setIsLoading(true);
-      const result = await findById<Player>(db, "players", Number(id));
+      const result = await findById<Player>(db, 'players', Number(id));
       setPlayer(result);
+
+      // Fetch player's leagues
+      const leagues = await getPlayerLeagues(db, Number(id));
+      setPlayerLeagues(leagues);
     } catch (error) {
-      console.error("Failed to fetch player:", error);
+      console.error('Failed to fetch player:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Refetch when screen comes into focus
   useFocusEffect(
     useCallback(() => {
       fetchPlayer();
@@ -46,28 +64,25 @@ export default function PlayerDetail() {
     if (!player) return;
 
     Alert.alert(
-      "Delete Player",
-      `Are you sure you want to delete ${player.firstName} ${player.lastName}? This cannot be undone.`,
+      'Delete Player',
+      `Are you sure you want to delete ${player.firstName} ${player.lastName}? This action cannot be undone.`,
       [
         {
-          text: "Cancel",
-          style: "cancel",
+          text: 'Cancel',
+          style: 'cancel',
         },
         {
-          text: "Delete",
-          style: "destructive",
+          text: 'Delete',
+          style: 'destructive',
           onPress: async () => {
             if (!db || !id) return;
 
             try {
-              await remove(db, "players", Number(id));
+              await remove(db, 'players', Number(id));
               router.back();
             } catch (error) {
-              console.error("Failed to delete player:", error);
-              Alert.alert(
-                "Error",
-                "Failed to delete player. Please try again."
-              );
+              console.error('Failed to delete player:', error);
+              Alert.alert('Error', 'Failed to delete player. Please try again.');
             }
           },
         },
@@ -76,7 +91,37 @@ export default function PlayerDetail() {
   };
 
   const handleEdit = () => {
-    router.push(`/players/new?id={id}&mode=edit`);
+    router.push(`/players/new?id=${id}&mode=edit`);
+  };
+
+  const handleRemoveFromLeague = (leagueId: number, leagueName: string) => {
+    if (!player) return;
+
+    Alert.alert(
+      'Leave League',
+      `Remove ${player.firstName} ${player.lastName} from ${leagueName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            if (!db || !id) return;
+            try {
+              await removePlayerFromLeague(db, Number(id), leagueId);
+              fetchPlayer(); // Refresh
+            } catch (error) {
+              console.error('Failed to remove from league:', error);
+              Alert.alert('Error', 'Failed to remove from league');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleViewLeague = (leagueId: number) => {
+    router.push(`/leagues/${leagueId}` as Href);
   };
 
   if (isLoading) {
@@ -104,12 +149,25 @@ export default function PlayerDetail() {
   }
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
+    return new Date(timestamp).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
     });
   };
+
+  const getLeagueDetails = (league: typeof playerLeagues[0]) => {
+    const parts = [];
+    if (league.season) parts.push(league.season);
+    if (league.location) parts.push(league.location);
+    return parts.join(' • ');
+  };
+
+  // Calculate overall stats
+  const totalWins = playerLeagues.reduce((sum, league) => sum + league.wins, 0);
+  const totalLosses = playerLeagues.reduce((sum, league) => sum + league.losses, 0);
+  const totalGames = totalWins + totalLosses;
+  const winPercentage = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : '0.0';
 
   return (
     <SafeAreaView className="flex-1 bg-background-0">
@@ -151,7 +209,7 @@ export default function PlayerDetail() {
 
               <VStack space="xs">
                 <Text size="sm" className="text-typography-500 font-medium">
-                  Created On
+                  Added On
                 </Text>
                 <Text size="md" className="text-typography-900">
                   {formatDate(player.createdAt)}
@@ -162,40 +220,108 @@ export default function PlayerDetail() {
 
           <Divider />
 
-          {/* Leagues Section - Placeholder */}
+          {/* Overall Stats */}
           <VStack space="lg">
             <Heading size="lg" className="text-typography-800">
-              Leagues
+              Overall Stats
             </Heading>
-            <Center className="py-4">
-              <Text className="text-typography-400 text-center">
-                League participation coming soon!
-              </Text>
-            </Center>
+            <Card size="md" variant="elevated" className="p-4">
+              <VStack space="md">
+                <HStack className="justify-between">
+                  <Text className="text-typography-600">Total Games</Text>
+                  <Text className="text-typography-900 font-semibold">
+                    {totalGames}
+                  </Text>
+                </HStack>
+                <HStack className="justify-between">
+                  <Text className="text-typography-600">Record</Text>
+                  <Text className="text-typography-900 font-semibold">
+                    {totalWins}W - {totalLosses}L
+                  </Text>
+                </HStack>
+                <HStack className="justify-between">
+                  <Text className="text-typography-600">Win Rate</Text>
+                  <Text className="text-typography-900 font-semibold">
+                    {winPercentage}%
+                  </Text>
+                </HStack>
+              </VStack>
+            </Card>
           </VStack>
 
           <Divider />
 
-          {/* Stats Section - Placeholder */}
+          {/* Leagues Section */}
           <VStack space="lg">
             <Heading size="lg" className="text-typography-800">
-              Stats
+              Leagues ({playerLeagues.length})
             </Heading>
-            <Center className="py-4">
-              <Text className="text-typography-400 text-center">
-                Win/loss records coming soon!
-              </Text>
-            </Center>
+
+            {playerLeagues.length === 0 ? (
+              <Center className="py-4">
+                <Text className="text-typography-400 text-center">
+                  Not enrolled in any leagues yet.
+                </Text>
+              </Center>
+            ) : (
+              <VStack space="md">
+                {playerLeagues.map((league) => (
+                  <Card
+                    key={league.id}
+                    size="md"
+                    variant="outline"
+                    className="p-4"
+                  >
+                    <VStack space="md">
+                      <VStack space="xs">
+                        <Heading size="md" className="text-typography-900">
+                          {league.name}
+                        </Heading>
+                        {getLeagueDetails(league) && (
+                          <Text size="sm" className="text-typography-500">
+                            {getLeagueDetails(league)}
+                          </Text>
+                        )}
+                        <Text size="sm" className="text-typography-600">
+                          Record: {league.wins}W - {league.losses}L
+                        </Text>
+                      </VStack>
+
+                      <HStack space="sm">
+                        <Button
+                          size="xs"
+                          variant="outline"
+                          className="flex-1"
+                          onPress={() => handleViewLeague(league.id)}
+                        >
+                          <ButtonText>View League</ButtonText>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="solid"
+                          action="negative"
+                          onPress={() =>
+                            handleRemoveFromLeague(league.id, league.name)
+                          }
+                        >
+                          <Icon as={LogOut} size="sm" className="text-typography-0" />
+                        </Button>
+                      </HStack>
+                    </VStack>
+                  </Card>
+                ))}
+              </VStack>
+            )}
           </VStack>
 
           {/* Action Buttons */}
           <VStack space="md" className="mt-4">
             <Button action="primary" size="lg" onPress={handleEdit}>
-                <ButtonText>Edit Player</ButtonText>
+              <ButtonText>Edit Player</ButtonText>
             </Button>
 
             <Button action="negative" variant="link" size="lg" onPress={handleDelete}>
-                <ButtonText>Delete Player</ButtonText>
+              <ButtonText className="text-error-500">Delete Player</ButtonText>
             </Button>
           </VStack>
         </VStack>
