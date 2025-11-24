@@ -20,7 +20,7 @@
 		13B07F961A680F5B00A75B9A /* starterkitexpo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = starterkitexpo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = starterkitexpo/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = starterkitexpo/Info.plist; sourceTree = "<group>"; };
-		19E39540C1C06D3D293688AA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = starterkitexpo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		19E39540C1C06D3D293688AA /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xml; name = PrivacyInfo.xcprivacy; path = starterkitexpo/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		3EA781A77995670AE2D97E4E /* Pods-starterkitexpo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-starterkitexpo.debug.xcconfig"; path = "Target Support Files/Pods-starterkitexpo/Pods-starterkitexpo.debug.xcconfig"; sourceTree = "<group>"; };
 		704132311F7FB14AFD3BB4A7 /* Pods-starterkitexpo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-starterkitexpo.release.xcconfig"; path = "Target Support Files/Pods-starterkitexpo/Pods-starterkitexpo.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = starterkitexpo/SplashScreen.storyboard; sourceTree = "<group>"; };
@@ -128,7 +128,6 @@
 				3EA781A77995670AE2D97E4E /* Pods-starterkitexpo.debug.xcconfig */,
 				704132311F7FB14AFD3BB4A7 /* Pods-starterkitexpo.release.xcconfig */,
 			);
-			name = Pods;
 			path = Pods;
 			sourceTree = "<group>";
 		};
@@ -341,6 +340,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = starterkitexpo/starterkitexpo.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Y8WLLHDAJ;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
@@ -359,7 +359,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.starter-kit-expo";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mzepeda.starter-kit-expo";
 				PRODUCT_NAME = starterkitexpo;
 				SWIFT_OBJC_BRIDGING_HEADER = "starterkitexpo/starterkitexpo-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -377,6 +377,7 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = starterkitexpo/starterkitexpo.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 6Y8WLLHDAJ;
 				INFOPLIST_FILE = starterkitexpo/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -390,7 +391,7 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.starter-kit-expo";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.mzepeda.starter-kit-expo";
 				PRODUCT_NAME = starterkitexpo;
 				SWIFT_OBJC_BRIDGING_HEADER = "starterkitexpo/starterkitexpo-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;

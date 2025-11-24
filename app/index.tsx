@@ -27,7 +27,7 @@ export default function Home() {
 
         <Button
           size="lg"
-          className="bg-primary-500 px-6 py-2 rounded-full mt-10 "
+          className="bg-secondary-500 px-6 py-2 rounded-full mt-10 "
           onPress={() => router.push("/(tabs)/leagues")}
         >
           <ButtonText>Enter</ButtonText>
