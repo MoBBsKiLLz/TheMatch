@@ -285,7 +285,7 @@ export default function Matches() {
       <Fab
         size="lg"
         placement="bottom right"
-        className="m-6"
+        className="m-6 bg-secondary-500"
         onPress={() => router.push("/matches/new" as Href)}
       >
         <FabIcon as={AddIcon} />

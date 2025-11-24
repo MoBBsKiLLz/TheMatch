@@ -249,7 +249,7 @@ export default function Players() {
       <Fab
         size="lg"
         placement="bottom right"
-        className="m-6"
+        className="m-6 bg-secondary-500"
         onPress={() => router.push("/players/new" as Href)}
       >
         <FabIcon as={AddIcon} />

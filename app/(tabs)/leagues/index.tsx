@@ -194,7 +194,7 @@ export default function Leagues() {
       <Fab
         size="lg"
         placement="bottom right"
-        className="m-6"
+        className="m-6 bg-secondary-500"
         onPress={() => router.push("/(tabs)/leagues/new")}
       >
         <FabIcon as={AddIcon} />
