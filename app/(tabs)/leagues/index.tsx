@@ -115,7 +115,7 @@ export default function Leagues() {
       >
         <VStack space="lg">
           <Heading size="2xl" className="text-typography-900">
-            Your League
+            Your Leagues
           </Heading>
 
           {leagues.length === 0 ? (

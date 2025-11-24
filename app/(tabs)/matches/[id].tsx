@@ -182,9 +182,9 @@ export default function MatchDetail() {
             <Heading size="3xl" className="text-typography-900">
               Match Details
             </Heading>
-            <Text className="text-typography-500">
+            {/* <Text className="text-typography-500">
               {formatDate(matchDetails.date)}
-            </Text>
+            </Text> */}
           </VStack>
 
           <Divider />

@@ -166,11 +166,11 @@ export default function LeagueDetails() {
             <Heading size="3xl" className="text-typography-900">
               {league.name}
             </Heading>
-            {getLeagueDetails(league) && (
+            {/* {getLeagueDetails(league) && (
               <Text size="sm" className="text-typography-500">
                 {getLeagueDetails(league)}
               </Text>
-            )}
+            )} */}
           </VStack>
 
           <Divider />
