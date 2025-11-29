@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "starter-kit-expo",
+    "name": "The Match",
     "slug": "starter-kit-expo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "starterkitexpo",
+    "scheme": "The Match",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
