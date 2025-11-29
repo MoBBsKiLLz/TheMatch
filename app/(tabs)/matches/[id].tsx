@@ -165,6 +165,10 @@ export default function MatchDetail() {
   const isPlayerAWinner = matchDetails.winnerId === matchDetails.playerAId;
   const isPlayerBWinner = matchDetails.winnerId === matchDetails.playerBId;
 
+  const handleEdit = () => {
+    router.push(`/matches/new?id=${id}&mode=edit`);
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background-0">
       <ScrollView className="flex-1" contentContainerClassName="p-6">
@@ -328,15 +332,17 @@ export default function MatchDetail() {
             </VStack>
           </VStack>
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           <VStack space="md" className="mt-4">
-            <Button
-              action="negative"
-              variant="link"
-              size="lg"
-              onPress={handleDelete}
-            >
-              <ButtonText>Delete Match</ButtonText>
+            <Button action="primary" size="lg" onPress={handleEdit}>
+              <ButtonText>
+                Edit Match
+              </ButtonText>
+            </Button>
+            <Button action="negative" variant="link" size="lg" onPress={handleDelete}>
+              <ButtonText>
+                Delete Match
+              </ButtonText>
             </Button>
           </VStack>
         </VStack>

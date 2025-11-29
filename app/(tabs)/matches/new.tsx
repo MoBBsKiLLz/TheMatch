@@ -37,14 +37,18 @@ import {
 import { CircleIcon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { League } from "@/types/league";
-import { createMatch } from "@/lib/db/matches";
+import { Match } from "@/types/match";
+import { createMatch, updateMatch } from "@/lib/db/matches";
 import { getLeaguePlayers } from "@/lib/db/playerLeagues";
+import { findById } from "@/lib/db/queries";
 
 export default function NewMatch() {
   const { db } = useDatabase();
+  const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
+  const isEditMode: boolean = mode === "edit" && !!id;
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState("");
   const [leaguePlayers, setLeaguePlayers] = useState<
@@ -63,6 +67,29 @@ export default function NewMatch() {
     winner?: string;
     general?: string;
   }>({});
+
+  // Load existing match if editing
+  useEffect(() => {
+    async function loadMatch() {
+      if (!isEditMode || !db) return;
+
+      try {
+        const match = await findById<Match>(db, "matches", Number(id));
+        if (match) {
+          setSelectedLeague(String(match.leagueId));
+          setPlayerAId(String(match.playerAId));
+          setPlayerBId(String(match.playerBId));
+          setWinnerId(match.winnerId ? String(match.winnerId) : "");
+          setMatchDate(match.date);
+        }
+      } catch (error) {
+        console.error("Failed to load match:", error);
+        setErrors({ general: "Failed to load match data" });
+      }
+    }
+
+    loadMatch();
+  }, [db, id, isEditMode]);
 
   // Load leagues
   useEffect(() => {
@@ -94,10 +121,12 @@ export default function NewMatch() {
         const players = await getLeaguePlayers(db, Number(selectedLeague));
         setLeaguePlayers(players);
 
-        // Reset player selections when league changes
-        setPlayerAId("");
-        setPlayerBId("");
-        setWinnerId("");
+        // Only reset player selections if NOT in edit mode
+        if (!isEditMode) {
+          setPlayerAId("");
+          setPlayerBId("");
+          setWinnerId("");
+        }
       } catch (error) {
         console.error("Failed to load players:", error);
       }
@@ -105,6 +134,15 @@ export default function NewMatch() {
 
     loadPlayers();
   }, [db, selectedLeague]);
+
+  const handlePlayerAChange = (value: string) => {
+    setPlayerAId(value);
+    // If Player B is now the same, clear it
+    if (value === playerBId) {
+      setPlayerBId("");
+      setWinnerId("");
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
@@ -149,18 +187,30 @@ export default function NewMatch() {
     Keyboard.dismiss();
 
     try {
-      await createMatch(db, {
-        date: matchDate,
-        playerAId: Number(playerAId),
-        playerBId: Number(playerBId),
-        winnerId: Number(winnerId),
-        leagueId: Number(selectedLeague),
-      });
+      if (isEditMode) {
+        // Update existing match
+        await updateMatch(db, Number(id), {
+          date: matchDate,
+          playerAId: Number(playerAId),
+          playerBId: Number(playerBId),
+          winnerId: Number(winnerId),
+          leagueId: Number(selectedLeague),
+        });
+      } else {
+        // Create new match
+        await createMatch(db, {
+          date: matchDate,
+          playerAId: Number(playerAId),
+          playerBId: Number(playerBId),
+          winnerId: Number(winnerId),
+          leagueId: Number(selectedLeague),
+        });
+      }
 
       router.back();
     } catch (err) {
-      console.error("Failed to create match:", err);
-      setErrors({ general: "Failed to create match. Please try again." });
+      console.error("Failed to save match:", err);
+      setErrors({ general: "Failed to save match. Please try again." });
       setIsSubmitting(false);
     }
   };
@@ -186,7 +236,7 @@ export default function NewMatch() {
       <SafeAreaView className="flex-1 bg-background-0">
         <VStack className="flex-1 p-6" space="2xl">
           <Heading size="3xl" className="text-typography-900">
-            Record Match
+            {isEditMode ? "Edit Match" : "Record Match"}
           </Heading>
           <Center className="flex-1">
             <VStack space="md" className="items-center">
@@ -211,6 +261,12 @@ export default function NewMatch() {
     return player ? `${player.firstName} ${player.lastName}` : "";
   };
 
+  const getPlayerDisplayName = (playerId: string): string => {
+    if (!playerId) return "";
+    const player = leaguePlayers.find((p) => p.id === Number(playerId));
+    return player ? `${player.firstName} ${player.lastName}` : "";
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background-0">
       <ScrollView
@@ -220,7 +276,7 @@ export default function NewMatch() {
       >
         <VStack space="2xl">
           <Heading size="3xl" className="text-typography-900">
-            Record Match
+            {isEditMode ? "Edit Match" : "Record Match"}
           </Heading>
 
           <VStack space="xl">
@@ -232,10 +288,18 @@ export default function NewMatch() {
               <Select
                 selectedValue={selectedLeague}
                 onValueChange={setSelectedLeague}
-                isDisabled={isSubmitting}
+                isDisabled={isSubmitting || isEditMode} // Can't change league in edit mode
               >
                 <SelectTrigger variant="outline" size="lg">
-                  <SelectInput placeholder="Select league" />
+                  <SelectInput
+                    placeholder="Select league"
+                    value={
+                      selectedLeague === "all"
+                        ? "All Leagues"
+                        : leagues.find((l) => String(l.id) === selectedLeague)
+                            ?.name || ""
+                    }
+                  />
                   <SelectIcon as={ChevronDownIcon} className="mr-3" />
                 </SelectTrigger>
                 <SelectPortal>
@@ -280,12 +344,19 @@ export default function NewMatch() {
                       </FormControlLabel>
                       <Select
                         selectedValue={playerAId}
-                        onValueChange={setPlayerAId}
+                        onValueChange={handlePlayerAChange}
                         isDisabled={isSubmitting}
                       >
                         <SelectTrigger variant="outline" size="lg">
-                          <SelectInput placeholder="Select player 1" />
-                          <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                          <SelectInput
+                            className="flex-1"
+                            placeholder="Select player 1"
+                            value={getPlayerDisplayName(playerAId)}
+                          />
+                          <SelectIcon
+                            as={ChevronDownIcon}
+                            className="ml-auto mr-3"
+                          />
                         </SelectTrigger>
                         <SelectPortal>
                           <SelectBackdrop />
@@ -323,8 +394,15 @@ export default function NewMatch() {
                         isDisabled={isSubmitting}
                       >
                         <SelectTrigger variant="outline" size="lg">
-                          <SelectInput placeholder="Select player 2" />
-                          <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                          <SelectInput
+                            className="flex-1"
+                            placeholder="Select player 2"
+                            value={getPlayerDisplayName(playerBId)}
+                          />
+                          <SelectIcon
+                            as={ChevronDownIcon}
+                            className="ml-auto mr-3"
+                          />
                         </SelectTrigger>
                         <SelectPortal>
                           <SelectBackdrop />
@@ -359,22 +437,23 @@ export default function NewMatch() {
                         <FormControlLabel>
                           <FormControlLabelText>Winner</FormControlLabelText>
                         </FormControlLabel>
-                        <RadioGroup
-                          value={winnerId}
-                          onChange={setWinnerId}
-                        >
+                        <RadioGroup value={winnerId} onChange={setWinnerId}>
                           <VStack space="md">
                             <Radio value={playerAId} isDisabled={isSubmitting}>
                               <RadioIndicator>
                                 <RadioIcon as={CircleIcon} />
                               </RadioIndicator>
-                              <RadioLabel>{getPlayerName(playerAId)}</RadioLabel>
+                              <RadioLabel>
+                                {getPlayerName(playerAId)}
+                              </RadioLabel>
                             </Radio>
                             <Radio value={playerBId} isDisabled={isSubmitting}>
                               <RadioIndicator>
                                 <RadioIcon as={CircleIcon} />
                               </RadioIndicator>
-                              <RadioLabel>{getPlayerName(playerBId)}</RadioLabel>
+                              <RadioLabel>
+                                {getPlayerName(playerBId)}
+                              </RadioLabel>
                             </Radio>
                           </VStack>
                         </RadioGroup>
@@ -422,7 +501,11 @@ export default function NewMatch() {
               isDisabled={isSubmitting || leaguePlayers.length < 2}
             >
               <ButtonText>
-                {isSubmitting ? "Recording..." : "Record Match"}
+                {isSubmitting
+                  ? "Saving..."
+                  : isEditMode
+                  ? "Update"
+                  : "Record Match"}
               </ButtonText>
             </Button>
           </HStack>

@@ -161,8 +161,16 @@ export default function Matches() {
               onValueChange={setSelectedLeague}
             >
               <SelectTrigger variant="outline" size="lg">
-                <SelectInput placeholder="Filter by league" />
-                <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                <SelectInput
+                  className="flex-1" 
+                  placeholder="Filter by league"
+                  value={
+                    selectedLeague === "all"
+                      ? "All Leagues"
+                      : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
+                  }
+                />
+                <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
               </SelectTrigger>
               <SelectPortal>
                 <SelectBackdrop />
