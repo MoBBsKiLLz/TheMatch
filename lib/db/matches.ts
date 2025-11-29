@@ -1,5 +1,5 @@
 import { Database } from './client';
-import { insert, remove, findById } from './queries';
+import { insert, remove, findById, update } from './queries';
 import { Match, MatchWithDetails } from '@/types/match';
 
 export async function createMatch(
@@ -121,4 +121,75 @@ export async function getPlayerMatches(
     ORDER BY m.date DESC, m.createdAt DESC`,
     [playerId, playerId]
   );
+}
+
+export async function updateMatch(db: Database, matchId: number, updates: {date?: number, playerAId?: number, playerBId?: number, winnerId?: number | null, leagueId?: number}) : Promise<void> {
+  // Get the current match to update
+  const oldMatch = await findById<Match>(db, 'matches', matchId);
+
+  if(!oldMatch) {
+    throw new Error('Match not found');
+  }
+
+  // Rollback old stats if there was a winner
+  if(oldMatch.winnerId) {
+    const oldLoserId = oldMatch.winnerId === oldMatch.playerAId ? oldMatch.playerBId : oldMatch.playerAId;
+
+    await db.run(
+      ` 
+        UPDATE player_leagues
+        SET wins = wins - 1
+        WHERE playerId = ? AND leagueId = ? AND wins > 0
+      `,
+      [oldMatch.winnerId, oldMatch.leagueId]
+    );
+
+    await db.run(
+      ` 
+        UPDATE player_leagues
+        SET losses = losses - 1
+        WHERE playerId = ? AND leagueId = ? AND losses > 0
+      `,
+      [oldLoserId, oldMatch.leagueId]
+    )
+  }
+
+  const fieldsToUpdate: Record<string, any> = {};
+  if(updates.date !== undefined) fieldsToUpdate.date = updates.date;
+  if(updates.playerAId !== undefined) fieldsToUpdate.playerAId = updates.playerAId;
+  if(updates.playerBId !== undefined) fieldsToUpdate.playerBId = updates.playerBId;
+  if(updates.winnerId !== undefined) fieldsToUpdate.winnerId = updates.winnerId;
+  if(updates.leagueId !== undefined) fieldsToUpdate.leagueId = updates.leagueId;
+
+  await update(db, 'matches', matchId, fieldsToUpdate);
+
+  // Get the updated match
+  const newMatch = await findById<Match>(db, 'matches', matchId);
+
+  if(!newMatch) {
+    throw new Error('Match not found');
+  }
+
+  // Apply new stats if there is a winner
+  if(newMatch.winnerId){
+    const newLoserId = newMatch.winnerId === newMatch.playerAId ? newMatch.playerBId : newMatch.playerAId;
+
+    await db.run(
+      ` 
+        UPDATE player_leagues
+        SET wins = wins + 1
+        WHERE playerId = ? AND leagueId = ?
+      `,
+      [newMatch.winnerId, newMatch.leagueId]
+    );
+
+    await db.run(
+      ` 
+        UPDATE player_leagues
+        SET losses = losses + 1
+        WHERE playerId = ? AND leagueId = ?
+      `,
+      [newLoserId, newMatch.leagueId]
+    );
+  }
 }
