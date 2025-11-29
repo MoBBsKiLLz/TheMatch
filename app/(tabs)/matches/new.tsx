@@ -135,6 +135,15 @@ export default function NewMatch() {
     loadPlayers();
   }, [db, selectedLeague]);
 
+  const handlePlayerAChange = (value: string) => {
+    setPlayerAId(value);
+    // If Player B is now the same, clear it
+    if (value === playerBId) {
+      setPlayerBId("");
+      setWinnerId("");
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
 
@@ -252,6 +261,12 @@ export default function NewMatch() {
     return player ? `${player.firstName} ${player.lastName}` : "";
   };
 
+  const getPlayerDisplayName = (playerId: string): string => {
+    if (!playerId) return "";
+    const player = leaguePlayers.find((p) => p.id === Number(playerId));
+    return player ? `${player.firstName} ${player.lastName}` : "";
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-background-0">
       <ScrollView
@@ -276,7 +291,15 @@ export default function NewMatch() {
                 isDisabled={isSubmitting || isEditMode} // Can't change league in edit mode
               >
                 <SelectTrigger variant="outline" size="lg">
-                  <SelectInput placeholder="Select league" />
+                  <SelectInput
+                    placeholder="Select league"
+                    value={
+                      selectedLeague === "all"
+                        ? "All Leagues"
+                        : leagues.find((l) => String(l.id) === selectedLeague)
+                            ?.name || ""
+                    }
+                  />
                   <SelectIcon as={ChevronDownIcon} className="mr-3" />
                 </SelectTrigger>
                 <SelectPortal>
@@ -321,12 +344,19 @@ export default function NewMatch() {
                       </FormControlLabel>
                       <Select
                         selectedValue={playerAId}
-                        onValueChange={setPlayerAId}
+                        onValueChange={handlePlayerAChange}
                         isDisabled={isSubmitting}
                       >
                         <SelectTrigger variant="outline" size="lg">
-                          <SelectInput placeholder="Select player 1" />
-                          <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                          <SelectInput
+                            className="flex-1"
+                            placeholder="Select player 1"
+                            value={getPlayerDisplayName(playerAId)}
+                          />
+                          <SelectIcon
+                            as={ChevronDownIcon}
+                            className="ml-auto mr-3"
+                          />
                         </SelectTrigger>
                         <SelectPortal>
                           <SelectBackdrop />
@@ -364,8 +394,15 @@ export default function NewMatch() {
                         isDisabled={isSubmitting}
                       >
                         <SelectTrigger variant="outline" size="lg">
-                          <SelectInput placeholder="Select player 2" />
-                          <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                          <SelectInput
+                            className="flex-1"
+                            placeholder="Select player 2"
+                            value={getPlayerDisplayName(playerBId)}
+                          />
+                          <SelectIcon
+                            as={ChevronDownIcon}
+                            className="ml-auto mr-3"
+                          />
                         </SelectTrigger>
                         <SelectPortal>
                           <SelectBackdrop />
@@ -464,7 +501,11 @@ export default function NewMatch() {
               isDisabled={isSubmitting || leaguePlayers.length < 2}
             >
               <ButtonText>
-                {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Record Match"}
+                {isSubmitting
+                  ? "Saving..."
+                  : isEditMode
+                  ? "Update"
+                  : "Record Match"}
               </ButtonText>
             </Button>
           </HStack>
