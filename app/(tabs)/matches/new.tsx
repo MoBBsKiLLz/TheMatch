@@ -292,6 +292,7 @@ export default function NewMatch() {
               >
                 <SelectTrigger variant="outline" size="lg">
                   <SelectInput
+                    className="flex-1"
                     placeholder="Select league"
                     value={
                       selectedLeague === "all"
@@ -300,7 +301,7 @@ export default function NewMatch() {
                             ?.name || ""
                     }
                   />
-                  <SelectIcon as={ChevronDownIcon} className="mr-3" />
+                  <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
                 </SelectTrigger>
                 <SelectPortal>
                   <SelectBackdrop />
