@@ -1,12 +1,5 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
-// Force Java 17
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-}
-
 buildscript {
   repositories {
     google()
