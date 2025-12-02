@@ -130,6 +130,12 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
+
+    // Compile options: target Java 21 for build toolchain
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
@@ -150,6 +156,18 @@ android {
             android.packagingOptions[prop] += it
         }
     }
+}
+
+// Ensure Kotlin compilation targets JVM 21
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "21"
+    }
+}
+
+// Use Kotlin JVM toolchain to align Kotlin compilation with JDK 21
+kotlin {
+    jvmToolchain(21)
 }
 
 dependencies {
