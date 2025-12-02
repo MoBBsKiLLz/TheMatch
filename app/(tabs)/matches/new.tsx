@@ -44,6 +44,10 @@ import { Match } from "@/types/match";
 import { createMatch, updateMatch } from "@/lib/db/matches";
 import { getLeaguePlayers } from "@/lib/db/playerLeagues";
 import { findById } from "@/lib/db/queries";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { Platform } from "react-native";
+import { Calendar } from "lucide-react-native";
+import { Icon } from "@/components/ui/icon";
 
 export default function NewMatch() {
   const { db } = useDatabase();
@@ -67,6 +71,7 @@ export default function NewMatch() {
     winner?: string;
     general?: string;
   }>({});
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Load existing match if editing
   useEffect(() => {
@@ -111,6 +116,25 @@ export default function NewMatch() {
 
     loadLeagues();
   }, [db]);
+
+  const formatDisplayDate = (timestamp: number) => {
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+    }
+
+    if (selectedDate) {
+      setMatchDate(selectedDate.getTime());
+    }
+  };
 
   // Load players when league is selected
   useEffect(() => {
@@ -288,7 +312,7 @@ export default function NewMatch() {
               <Select
                 selectedValue={selectedLeague}
                 onValueChange={setSelectedLeague}
-                isDisabled={isSubmitting || isEditMode} // Can't change league in edit mode
+                isDisabled={isSubmitting || isEditMode}
               >
                 <SelectTrigger variant="outline" size="lg">
                   <SelectInput
@@ -325,6 +349,52 @@ export default function NewMatch() {
                 </FormControlError>
               )}
             </FormControl>
+
+            {/* Match Date */}
+            <FormControl>
+              <FormControlLabel>
+                <FormControlLabelText>Match Date</FormControlLabelText>
+              </FormControlLabel>
+              <Button
+                variant="outline"
+                size="lg"
+                onPress={() => setShowDatePicker(true)}
+                isDisabled={isSubmitting}
+                className="justify-start"
+              >
+                <HStack className="flex-1 justify-between items-center px-3">
+                  <Text className="text-typography-900">
+                    {formatDisplayDate(matchDate)}
+                  </Text>
+                  <Icon as={Calendar} size="sm" className="text-typography-500" />
+                </HStack>
+              </Button>
+              <Text size="xs" className="text-typography-400 mt-1">
+                Select the date this match was played
+              </Text>
+            </FormControl>
+
+            {/* Date Picker */}
+            {showDatePicker && (
+              <>
+                <DateTimePicker
+                  value={new Date(matchDate)}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                />
+                {Platform.OS === 'ios' && (
+                  <Button
+                    size="sm"
+                    action="primary"
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <ButtonText>Done</ButtonText>
+                  </Button>
+                )}
+              </>
+            )}
 
             {/* Player A Selection */}
             {selectedLeague && (
