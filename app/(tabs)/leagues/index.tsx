@@ -142,6 +142,10 @@ export default function Leagues() {
                         size="md"
                         variant="elevated"
                         className="p-4 border border-neutral-400"
+                        style={{
+                          borderLeftWidth: 6,
+                          borderLeftColor: league.color,
+                        }}
                       >
                         <VStack space="md">
                           <VStack space="xs">

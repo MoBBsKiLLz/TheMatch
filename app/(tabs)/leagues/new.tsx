@@ -21,17 +21,19 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { insert, update, findById } from "@/lib/db/queries";
 import { League } from "@/types/league";
+import { ColorPicker } from "@/components/ColorPicker";
 
 export default function NewLeague() {
   const { db } = useDatabase();
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
-  const isEditMode = mode === "edit" && id;
+  const isEditMode = mode === "edit" && !!id;
   const [name, setName] = useState("");
   const [season, setSeason] = useState("");
   const [location, setLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode ? true : false);
   const [error, setError] = useState("");
+  const [color, setColor] = useState("#1E6FFF");
 
   // Load existing league data if editing
   useEffect(() => {
@@ -44,6 +46,7 @@ export default function NewLeague() {
           setName(league.name);
           setSeason(league.season || "");
           setLocation(league.location || "");
+          setColor(league.color || "#1E6FFF");
         }
       } catch (error) {
         console.error("Failed to load league:", error);
@@ -81,6 +84,7 @@ export default function NewLeague() {
           name: name.trim(),
           season: season.trim() || null,
           location: location.trim() || null,
+          color: color,
         });
       } else {
         // Create New League
@@ -89,6 +93,7 @@ export default function NewLeague() {
           season: season.trim() || null,
           location: location.trim() || null,
           createdAt: Date.now(),
+          color: color,
         });
       }
 
@@ -126,7 +131,7 @@ export default function NewLeague() {
       >
         <VStack space="2xl">
           <Heading size="3xl" className="text-typography-900">
-            {isEditMode ? 'Edit League' : 'Create New League'}
+            {isEditMode ? "Edit League" : "Create New League"}
           </Heading>
 
           <VStack space="xl">
@@ -197,6 +202,13 @@ export default function NewLeague() {
             )}
           </VStack>
 
+          {/* League Color */}
+          <ColorPicker
+            selectedColor={color}
+            onColorSelect={setColor}
+            disabled={isSubmitting}
+          />
+
           {/* Action Buttons */}
           <HStack space="md" className="mt-4">
             <Button
@@ -216,7 +228,9 @@ export default function NewLeague() {
               onPress={handleSubmit}
               isDisabled={isSubmitting}
             >
-              <ButtonText>{isSubmitting ? "Saving..." : isEditMode? "Update" : "Create"}</ButtonText>
+              <ButtonText>
+                {isSubmitting ? "Saving..." : isEditMode ? "Update" : "Create"}
+              </ButtonText>
             </Button>
           </HStack>
         </VStack>

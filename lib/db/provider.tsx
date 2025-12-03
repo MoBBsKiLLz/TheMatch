@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { Database, openDatabase } from './client';
-import { setupDatabase } from './schema'
+import { setupDatabase } from './schema';
+import { addLeagueColorColumn } from './migrations';
 
 type DatabaseContextType = {
     db: Database | null;
@@ -21,7 +22,12 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             try {
                 const database = await openDatabase();
                 await setupDatabase(database);
-                setDb(new Database(database));
+
+                // Run migrations
+                const dbInstance = new Database(database);
+                await addLeagueColorColumn(dbInstance);
+                
+                setDb(dbInstance);
             } catch (error) {
                 console.error('Failed to initialize database:', error);
             } finally {

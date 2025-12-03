@@ -3,5 +3,6 @@ export type League = {
     name: string;
     season?: string;
     location: string;
+    color: string;
     createdAt: number;
 }

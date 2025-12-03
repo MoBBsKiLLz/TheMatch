@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Keyboard, Alert } from "react-native";
-import { SafeAreaView } from "@/components/ui/safe-area-view";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { VStack } from "@/components/ui/vstack";
 import { HStack } from "@/components/ui/hstack";
