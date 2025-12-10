@@ -9,7 +9,7 @@ import { Text } from "@/components/ui/text";
 import { Button, ButtonText } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { Card } from '@/components/ui/card';
+import { Card } from "@/components/ui/card";
 import { Divider } from "@/components/ui/divider";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
@@ -19,6 +19,12 @@ import {
   getLeaguePlayers,
   removePlayerFromLeague,
 } from "@/lib/db/playerLeagues";
+import { Leaderboard } from "@/components/Leaderboard";
+import {
+  getLeagueLeaderboard,
+  resolveLeaderboardTies,
+  LeaderboardEntry,
+} from "@/lib/db/leaderboard";
 
 export default function LeagueDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -35,6 +41,7 @@ export default function LeagueDetails() {
       playerLeagueId: number;
     }[]
   >([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
 
   const fetchLeague = async () => {
     if (!db || !id) return;
@@ -47,6 +54,15 @@ export default function LeagueDetails() {
       // Fetch league players
       const players = await getLeaguePlayers(db, Number(id));
       setLeaguePlayers(players);
+
+      // Fetch leaderboard with tie resolution
+      const standings = await getLeagueLeaderboard(db, Number(id));
+      const resolvedStandings = await resolveLeaderboardTies(
+        db,
+        Number(id),
+        standings
+      );
+      setLeaderboard(resolvedStandings);
     } catch (error) {
       console.error("Failed to fetch league:", error);
     } finally {
@@ -217,6 +233,16 @@ export default function LeagueDetails() {
 
           <Divider />
 
+          {/* Leaderboard Section */}
+          <VStack space="lg">
+            <Heading size="lg" className="text-typography-800">
+              Standings
+            </Heading>
+            <Leaderboard entries={leaderboard} showRank={true} />
+          </VStack>
+
+          <Divider />
+
           {/* Players Section */}
           <VStack space="lg">
             <HStack className="justify-between items-center">
@@ -228,7 +254,9 @@ export default function LeagueDetails() {
                 action="secondary"
                 onPress={() => router.push(`/leagues/${id}/add-players`)}
               >
-                <ButtonText className="text-typography-black">Add Players</ButtonText>
+                <ButtonText className="text-typography-black">
+                  Add Players
+                </ButtonText>
               </Button>
             </HStack>
 
@@ -267,7 +295,9 @@ export default function LeagueDetails() {
                           )
                         }
                       >
-                        <ButtonText className="text-error-500">Remove</ButtonText>
+                        <ButtonText className="text-error-500">
+                          Remove
+                        </ButtonText>
                       </Button>
                     </HStack>
                   </Card>
