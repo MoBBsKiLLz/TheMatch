@@ -1,38 +1,58 @@
-import React, { useState, useCallback } from 'react';
-import { Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView } from '@/components/ui/scroll-view';
-import { VStack } from '@/components/ui/vstack';
-import { HStack } from '@/components/ui/hstack';
-import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
-import { Button, ButtonText } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Spinner } from '@/components/ui/spinner';
-import { Center } from '@/components/ui/center';
-import { Divider } from '@/components/ui/divider';
-import { router, useLocalSearchParams, useFocusEffect, Href } from 'expo-router';
-import { useDatabase } from '@/lib/db/provider';
-import { findById, remove } from '@/lib/db/queries';
-import { Player } from '@/types/player';
-import { getPlayerLeagues, removePlayerFromLeague } from '@/lib/db/playerLeagues';
-import { Icon } from '@/components/ui/icon';
-import { LogOut } from 'lucide-react-native';
+import React, { useState, useCallback } from "react";
+import { Alert } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView } from "@/components/ui/scroll-view";
+import { VStack } from "@/components/ui/vstack";
+import { HStack } from "@/components/ui/hstack";
+import { Heading } from "@/components/ui/heading";
+import { Text } from "@/components/ui/text";
+import { Button, ButtonText } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import { Center } from "@/components/ui/center";
+import { Divider } from "@/components/ui/divider";
+import {
+  router,
+  useLocalSearchParams,
+  useFocusEffect,
+  Href,
+} from "expo-router";
+import { useDatabase } from "@/lib/db/provider";
+import { findById, remove } from "@/lib/db/queries";
+import { Player } from "@/types/player";
+import {
+  getPlayerLeagues,
+  removePlayerFromLeague,
+} from "@/lib/db/playerLeagues";
+import { Icon } from "@/components/ui/icon";
+import { LogOut } from "lucide-react-native";
+import {
+  getPlayerStats,
+  PlayerStats,
+  formatStreak,
+  formatRecentForm,
+} from "@/lib/db/stats";
 
 export default function PlayerDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { db } = useDatabase();
   const [player, setPlayer] = useState<Player | null>(null);
-  const [playerLeagues, setPlayerLeagues] = useState<{
-    id: number;
-    name: string;
-    season: string | null;
-    location: string | null;
-    wins: number;
-    losses: number;
-    playerLeagueId: number;
-  }[]>([]);
+  const [playerLeagues, setPlayerLeagues] = useState<
+    {
+      id: number;
+      name: string;
+      season: string | null;
+      location: string | null;
+      color: string;
+      wins: number;
+      losses: number;
+      playerLeagueId: number;
+    }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [playerStats, setPlayerStats] = useState<Map<number, PlayerStats>>(
+    new Map()
+  );
 
   // Fetch player data and their leagues
   const fetchPlayer = async () => {
@@ -40,14 +60,22 @@ export default function PlayerDetail() {
 
     try {
       setIsLoading(true);
-      const result = await findById<Player>(db, 'players', Number(id));
+      const result = await findById<Player>(db, "players", Number(id));
       setPlayer(result);
 
       // Fetch player's leagues
       const leagues = await getPlayerLeagues(db, Number(id));
       setPlayerLeagues(leagues);
+
+      // Fetch stats for each league
+      const statsMap = new Map<number, PlayerStats>();
+      for (const league of leagues) {
+        const stats = await getPlayerStats(db, Number(id), league.id);
+        statsMap.set(league.id, stats);
+      }
+      setPlayerStats(statsMap);
     } catch (error) {
-      console.error('Failed to fetch player:', error);
+      console.error("Failed to fetch player:", error);
     } finally {
       setIsLoading(false);
     }
@@ -64,25 +92,28 @@ export default function PlayerDetail() {
     if (!player) return;
 
     Alert.alert(
-      'Delete Player',
+      "Delete Player",
       `Are you sure you want to delete ${player.firstName} ${player.lastName}? This action cannot be undone.`,
       [
         {
-          text: 'Cancel',
-          style: 'cancel',
+          text: "Cancel",
+          style: "cancel",
         },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: async () => {
             if (!db || !id) return;
 
             try {
-              await remove(db, 'players', Number(id));
+              await remove(db, "players", Number(id));
               router.back();
             } catch (error) {
-              console.error('Failed to delete player:', error);
-              Alert.alert('Error', 'Failed to delete player. Please try again.');
+              console.error("Failed to delete player:", error);
+              Alert.alert(
+                "Error",
+                "Failed to delete player. Please try again."
+              );
             }
           },
         },
@@ -98,21 +129,21 @@ export default function PlayerDetail() {
     if (!player) return;
 
     Alert.alert(
-      'Leave League',
+      "Leave League",
       `Remove ${player.firstName} ${player.lastName} from ${leagueName}?`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Remove',
-          style: 'destructive',
+          text: "Remove",
+          style: "destructive",
           onPress: async () => {
             if (!db || !id) return;
             try {
               await removePlayerFromLeague(db, Number(id), leagueId);
               fetchPlayer(); // Refresh
             } catch (error) {
-              console.error('Failed to remove from league:', error);
-              Alert.alert('Error', 'Failed to remove from league');
+              console.error("Failed to remove from league:", error);
+              Alert.alert("Error", "Failed to remove from league");
             }
           },
         },
@@ -149,25 +180,29 @@ export default function PlayerDetail() {
   }
 
   const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return new Date(timestamp).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
-  const getLeagueDetails = (league: typeof playerLeagues[0]) => {
+  const getLeagueDetails = (league: (typeof playerLeagues)[0]) => {
     const parts = [];
     if (league.season) parts.push(league.season);
     if (league.location) parts.push(league.location);
-    return parts.join(' • ');
+    return parts.join(" • ");
   };
 
   // Calculate overall stats
   const totalWins = playerLeagues.reduce((sum, league) => sum + league.wins, 0);
-  const totalLosses = playerLeagues.reduce((sum, league) => sum + league.losses, 0);
+  const totalLosses = playerLeagues.reduce(
+    (sum, league) => sum + league.losses,
+    0
+  );
   const totalGames = totalWins + totalLosses;
-  const winPercentage = totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : '0.0';
+  const winPercentage =
+    totalGames > 0 ? ((totalWins / totalGames) * 100).toFixed(1) : "0.0";
 
   return (
     <SafeAreaView className="flex-1 bg-background-0">
@@ -265,51 +300,130 @@ export default function PlayerDetail() {
               </Center>
             ) : (
               <VStack space="md">
-                {playerLeagues.map((league) => (
-                  <Card
-                    key={league.id}
-                    size="md"
-                    variant="outline"
-                    className="p-4"
-                  >
-                    <VStack space="md">
-                      <VStack space="xs">
-                        <Heading size="md" className="text-typography-900">
-                          {league.name}
-                        </Heading>
-                        {getLeagueDetails(league) && (
-                          <Text size="sm" className="text-typography-500">
-                            {getLeagueDetails(league)}
-                          </Text>
-                        )}
-                        <Text size="sm" className="text-typography-600">
-                          Record: {league.wins}W - {league.losses}L
-                        </Text>
-                      </VStack>
+                {playerLeagues.map((league) => {
+                  const stats = playerStats.get(league.id);
 
-                      <HStack space="sm">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="flex-1"
-                          onPress={() => handleViewLeague(league.id)}
-                        >
-                          <ButtonText>View League</ButtonText>
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="solid"
-                          action="negative"
-                          onPress={() =>
-                            handleRemoveFromLeague(league.id, league.name)
-                          }
-                        >
-                          <Icon as={LogOut} size="sm" className="text-typography-0" />
-                        </Button>
-                      </HStack>
-                    </VStack>
-                  </Card>
-                ))}
+                  return (
+                    <Card
+                      key={league.id}
+                      size="md"
+                      variant="outline"
+                      className="p-4"
+                      style={{
+                        borderLeftWidth: 4,
+                        borderLeftColor: league.color || "#1E6FFF",
+                      }}
+                    >
+                      <VStack space="md">
+                        <VStack space="xs">
+                          <Heading size="md" className="text-typography-900">
+                            {league.name}
+                          </Heading>
+                          {getLeagueDetails(league) && (
+                            <Text size="sm" className="text-typography-500">
+                              {getLeagueDetails(league)}
+                            </Text>
+                          )}
+                        </VStack>
+
+                        {/* Stats Row */}
+                        <HStack space="lg" className="flex-wrap">
+                          <VStack space="xs">
+                            <Text size="xs" className="text-typography-500">
+                              Record
+                            </Text>
+                            <Text
+                              size="sm"
+                              className="text-typography-900 font-semibold"
+                            >
+                              {league.wins}W - {league.losses}L
+                            </Text>
+                          </VStack>
+
+                          {stats && (
+                            <>
+                              <VStack space="xs">
+                                <Text size="xs" className="text-typography-500">
+                                  Current Streak
+                                </Text>
+                                <Text
+                                  size="sm"
+                                  className={`font-semibold ${
+                                    stats.currentStreak > 0
+                                      ? "text-success-600"
+                                      : stats.currentStreak < 0
+                                      ? "text-error-600"
+                                      : "text-typography-900"
+                                  }`}
+                                >
+                                  {formatStreak(stats.currentStreak)}
+                                </Text>
+                              </VStack>
+
+                              <VStack space="xs">
+                                <Text size="xs" className="text-typography-500">
+                                  Best Streak
+                                </Text>
+                                <Text
+                                  size="sm"
+                                  className="text-typography-900 font-semibold"
+                                >
+                                  W{stats.bestWinStreak}
+                                </Text>
+                              </VStack>
+
+                              <VStack space="xs">
+                                <Text size="xs" className="text-typography-500">
+                                  Recent Form
+                                </Text>
+                                <HStack space="xs">
+                                  {stats.recentForm.map((result, index) => (
+                                    <Text
+                                      key={index}
+                                      size="xs"
+                                      className={`font-bold ${
+                                        result === "W"
+                                          ? "text-success-600"
+                                          : "text-error-600"
+                                      }`}
+                                    >
+                                      {result}
+                                    </Text>
+                                  ))}
+                                </HStack>
+                              </VStack>
+                            </>
+                          )}
+                        </HStack>
+
+                        <HStack space="sm">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            className="flex-1"
+                            onPress={() => handleViewLeague(league.id)}
+                          >
+                            <ButtonText>View League</ButtonText>
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            action="negative"
+                            onPress={() =>
+                              handleRemoveFromLeague(league.id, league.name)
+                            }
+                          >
+                            <Icon
+                              as={LogOut}
+                              size="sm"
+                              className="text-white"
+                            />
+                          </Button>
+                        </HStack>
+                      </VStack>
+                    </Card>
+                  );
+                })}
               </VStack>
             )}
           </VStack>
@@ -320,7 +434,12 @@ export default function PlayerDetail() {
               <ButtonText>Edit Player</ButtonText>
             </Button>
 
-            <Button action="negative" variant="link" size="lg" onPress={handleDelete}>
+            <Button
+              action="negative"
+              variant="link"
+              size="lg"
+              onPress={handleDelete}
+            >
               <ButtonText className="text-error-500">Delete Player</ButtonText>
             </Button>
           </VStack>

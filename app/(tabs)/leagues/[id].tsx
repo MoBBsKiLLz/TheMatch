@@ -238,7 +238,7 @@ export default function LeagueDetails() {
             <Heading size="lg" className="text-typography-800">
               Standings
             </Heading>
-            <Leaderboard entries={leaderboard} showRank={true} />
+            <Leaderboard entries={leaderboard} leagueId={Number(id)} showRank={true} />
           </VStack>
 
           <Divider />
