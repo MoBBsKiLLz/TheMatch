@@ -43,6 +43,7 @@ import { getMatchesWithDetails, createMatch } from "@/lib/db/matches";
 import { MatchWithDetails } from "@/types/match";
 import { createTournament, getSeasonTournament } from "@/lib/db/tournaments";
 import { Tournament, TournamentFormat } from "@/types/tournament";
+import { PoolGameData } from "@/types/games";
 import {
   Accordion,
   AccordionItem,
@@ -422,9 +423,38 @@ export default function SeasonDetail() {
     );
   };
 
-  const handleQuickRecordWin = async (match: OwedMatch, winnerId: number, isMakeup: boolean = false) => {
-    if (!db || !id || !seasonId) return;
+  const getPlayerButtonName = (playerName: string, opponentName: string) => {
+    const [firstName, lastName] = playerName.split(' ');
+    const [oppFirstName, oppLastName] = opponentName.split(' ');
 
+    if (!lastName) return firstName; // Safety check
+
+    const initial = lastName[0];
+    const oppInitial = oppLastName ? oppLastName[0] : '';
+
+    const shortName = `${firstName} ${initial}`;
+    const oppShortName = `${oppFirstName} ${oppInitial}`;
+
+    // If there's still a conflict (same first name + last initial), use full name
+    if (shortName === oppShortName) {
+      return playerName;
+    }
+
+    return shortName;
+  };
+
+  const handleQuickRecordWin = async (match: OwedMatch, winnerId: number, isMakeup: boolean = false) => {
+    if (!db || !id || !seasonId || !league) return;
+
+    // For darts and dominos, redirect to full form
+    if (league.gameType === 'darts' || league.gameType === 'dominos') {
+      router.push(
+        `/matches/new?leagueId=${id}&seasonId=${seasonId}&weekNumber=${match.weekNumber}&playerAId=${match.playerId}&playerBId=${match.opponentId}&isMakeup=${isMakeup ? 1 : 0}` as Href
+      );
+      return;
+    }
+
+    // For pool, quick record with defaults
     const winnerName = winnerId === match.playerId ? match.playerName : match.opponentName;
 
     Alert.alert(
@@ -436,6 +466,8 @@ export default function SeasonDetail() {
           text: "Record Win",
           onPress: async () => {
             try {
+              const poolGameData: PoolGameData = { winMethod: 'made_all_balls' };
+
               await createMatch(db, {
                 leagueId: Number(id),
                 seasonId: Number(seasonId),
@@ -445,6 +477,8 @@ export default function SeasonDetail() {
                 winnerId,
                 date: Date.now(),
                 isMakeup: isMakeup ? 1 : 0,
+                gameVariant: '8-ball',
+                gameData: poolGameData,
               });
 
               // Refresh data
@@ -709,7 +743,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.playerId, false)}
                                   >
-                                    <ButtonText className="text-xs">{match.playerName.split(' ')[0]} Wins</ButtonText>
+                                    <ButtonText className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
                                   </Button>
                                   <Button
                                     size="xs"
@@ -717,7 +751,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.opponentId, false)}
                                   >
-                                    <ButtonText className="text-xs">{match.opponentName.split(' ')[0]} Wins</ButtonText>
+                                    <ButtonText className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
                                   </Button>
                                 </HStack>
                               </VStack>
@@ -783,7 +817,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.playerId, true)}
                                   >
-                                    <ButtonText className="text-xs">{match.playerName.split(' ')[0]} Wins</ButtonText>
+                                    <ButtonText className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
                                   </Button>
                                   <Button
                                     size="xs"
@@ -791,7 +825,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.opponentId, true)}
                                   >
-                                    <ButtonText className="text-xs">{match.opponentName.split(' ')[0]} Wins</ButtonText>
+                                    <ButtonText className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
                                   </Button>
                                 </HStack>
                               </VStack>

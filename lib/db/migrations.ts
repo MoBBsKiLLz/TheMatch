@@ -92,3 +92,45 @@ export async function addTournamentSeriesFormat(db: Database): Promise<void> {
     console.error('Failed to add seriesFormat column:', error);
   }
 }
+
+export async function addGameTypeToLeagues(db: Database): Promise<void> {
+  try {
+    // Check if column exists
+    const tableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(leagues)"
+    );
+
+    const hasGameType = tableInfo.some(col => col.name === 'gameType');
+
+    if (!hasGameType) {
+      await db.run('ALTER TABLE leagues ADD COLUMN gameType TEXT DEFAULT "pool"');
+      console.log('Added gameType column to leagues table');
+    }
+  } catch (error) {
+    console.error('Failed to add gameType column:', error);
+  }
+}
+
+export async function addGameDataToMatches(db: Database): Promise<void> {
+  try {
+    // Check if columns exist
+    const tableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(matches)"
+    );
+
+    const hasGameVariant = tableInfo.some(col => col.name === 'gameVariant');
+    const hasGameData = tableInfo.some(col => col.name === 'gameData');
+
+    if (!hasGameVariant) {
+      await db.run('ALTER TABLE matches ADD COLUMN gameVariant TEXT');
+      console.log('Added gameVariant column to matches table');
+    }
+
+    if (!hasGameData) {
+      await db.run('ALTER TABLE matches ADD COLUMN gameData TEXT');
+      console.log('Added gameData column to matches table');
+    }
+  } catch (error) {
+    console.error('Failed to add game data columns:', error);
+  }
+}

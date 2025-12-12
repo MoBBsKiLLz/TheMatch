@@ -103,6 +103,23 @@ export default function TournamentBracket() {
     return rounds.filter(round => !completedRounds.has(round)).map(String);
   }, [rounds, completedRounds]);
 
+  const getPlayerButtonName = (playerFirstName: string, playerLastName: string, opponentFirstName: string, opponentLastName: string) => {
+    if (!playerLastName) return playerFirstName; // Safety check
+
+    const initial = playerLastName[0];
+    const oppInitial = opponentLastName ? opponentLastName[0] : '';
+
+    const shortName = `${playerFirstName} ${initial}`;
+    const oppShortName = `${opponentFirstName} ${oppInitial}`;
+
+    // If there's still a conflict (same first name + last initial), use full name
+    if (shortName === oppShortName) {
+      return `${playerFirstName} ${playerLastName}`;
+    }
+
+    return shortName;
+  };
+
   const handleRecordGame = (match: TournamentMatchWithDetails, winnerId: number) => {
     if (!db || !tournament) return;
 
@@ -284,7 +301,7 @@ export default function TournamentBracket() {
                             className="flex-1"
                             onPress={() => handleRecordGame(match, match.playerAId!)}
                           >
-                            <ButtonText>{match.playerAFirstName} Wins</ButtonText>
+                            <ButtonText>{getPlayerButtonName(match.playerAFirstName || '', match.playerALastName || '', match.playerBFirstName || '', match.playerBLastName || '')} Wins</ButtonText>
                           </Button>
                           <Button
                             action="primary"
@@ -292,7 +309,7 @@ export default function TournamentBracket() {
                             className="flex-1"
                             onPress={() => handleRecordGame(match, match.playerBId!)}
                           >
-                            <ButtonText>{match.playerBFirstName} Wins</ButtonText>
+                            <ButtonText>{getPlayerButtonName(match.playerBFirstName || '', match.playerBLastName || '', match.playerAFirstName || '', match.playerALastName || '')} Wins</ButtonText>
                           </Button>
                         </HStack>
                       )}

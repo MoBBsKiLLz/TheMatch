@@ -1,3 +1,5 @@
+import { GameData } from './games';
+
 export type Match = {
   id: number;
   date: number;
@@ -8,6 +10,8 @@ export type Match = {
   seasonId?: number | null;
   weekNumber?: number | null;
   isMakeup?: number;
+  gameVariant?: string | null;
+  gameData?: string | null; // JSON string
   createdAt: number;
 };
 
@@ -18,3 +22,7 @@ export type MatchWithDetails = Match & {
     playerBLastName: string;
     leagueName: string;
 }
+
+export type ParsedMatch = Match & {
+  parsedGameData?: GameData;
+};

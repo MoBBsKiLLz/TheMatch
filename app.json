@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.starter-kit-expo"
+      "bundleIdentifier": "com.mzepeda.starter-kit-expo"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.starterkitexpo"
+      "package": "com.mzepeda.starterkitexpo"
     },
     "web": {
       "bundler": "metro",

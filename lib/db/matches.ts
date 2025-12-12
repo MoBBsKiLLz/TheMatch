@@ -1,6 +1,7 @@
 import { Database } from './client';
 import { insert, remove, findById, update } from './queries';
 import { Match, MatchWithDetails } from '@/types/match';
+import { GameData } from '@/types/games';
 
 export async function createMatch(
   db: Database,
@@ -10,9 +11,11 @@ export async function createMatch(
     playerBId: number;
     winnerId: number | null;
     leagueId: number;
-    seasonId?: number;      
-    weekNumber?: number;    
-    isMakeup?: number;     
+    seasonId?: number;
+    weekNumber?: number;
+    isMakeup?: number;
+    gameVariant?: string;
+    gameData?: GameData;
   }
 ): Promise<number> {
   // Use the insert helper
@@ -22,9 +25,11 @@ export async function createMatch(
     playerBId: match.playerBId,
     winnerId: match.winnerId,
     leagueId: match.leagueId,
-    seasonId: match.seasonId ?? null,      
-    weekNumber: match.weekNumber ?? null,  
-    isMakeup: match.isMakeup ?? 0,         
+    seasonId: match.seasonId ?? null,
+    weekNumber: match.weekNumber ?? null,
+    isMakeup: match.isMakeup ?? 0,
+    gameVariant: match.gameVariant ?? null,
+    gameData: match.gameData ? JSON.stringify(match.gameData) : null,
     createdAt: Date.now(),
   });
 
@@ -146,7 +151,7 @@ export async function getPlayerMatches(
   );
 }
 
-export async function updateMatch(db: Database, matchId: number, updates: {date?: number, playerAId?: number, playerBId?: number, winnerId?: number | null, leagueId?: number}) : Promise<void> {
+export async function updateMatch(db: Database, matchId: number, updates: {date?: number, playerAId?: number, playerBId?: number, winnerId?: number | null, leagueId?: number, gameVariant?: string, gameData?: GameData}) : Promise<void> {
   // Get the current match to update
   const oldMatch = await findById<Match>(db, 'matches', matchId);
 
@@ -159,7 +164,7 @@ export async function updateMatch(db: Database, matchId: number, updates: {date?
     const oldLoserId = oldMatch.winnerId === oldMatch.playerAId ? oldMatch.playerBId : oldMatch.playerAId;
 
     await db.run(
-      ` 
+      `
         UPDATE player_leagues
         SET wins = wins - 1
         WHERE playerId = ? AND leagueId = ? AND wins > 0
@@ -168,7 +173,7 @@ export async function updateMatch(db: Database, matchId: number, updates: {date?
     );
 
     await db.run(
-      ` 
+      `
         UPDATE player_leagues
         SET losses = losses - 1
         WHERE playerId = ? AND leagueId = ? AND losses > 0
@@ -183,6 +188,8 @@ export async function updateMatch(db: Database, matchId: number, updates: {date?
   if(updates.playerBId !== undefined) fieldsToUpdate.playerBId = updates.playerBId;
   if(updates.winnerId !== undefined) fieldsToUpdate.winnerId = updates.winnerId;
   if(updates.leagueId !== undefined) fieldsToUpdate.leagueId = updates.leagueId;
+  if(updates.gameVariant !== undefined) fieldsToUpdate.gameVariant = updates.gameVariant;
+  if(updates.gameData !== undefined) fieldsToUpdate.gameData = updates.gameData ? JSON.stringify(updates.gameData) : null;
 
   await update(db, 'matches', matchId, fieldsToUpdate);
 

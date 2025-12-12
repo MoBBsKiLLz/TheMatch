@@ -41,9 +41,14 @@ import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { League } from "@/types/league";
 import { Match } from "@/types/match";
+import { GameData, PoolVariant } from "@/types/games";
 import { createMatch, updateMatch } from "@/lib/db/matches";
 import { getLeaguePlayers } from "@/lib/db/playerLeagues";
 import { findById } from "@/lib/db/queries";
+import { getGameConfig } from "@/lib/games";
+import { PoolMatchForm } from "@/components/match-forms/PoolMatchForm";
+import { DartsMatchForm } from "@/components/match-forms/DartsMatchForm";
+import { DominosMatchForm } from "@/components/match-forms/DominosMatchForm";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
 import { Calendar } from "lucide-react-native";
@@ -93,6 +98,9 @@ export default function NewMatch() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [seasonId, setSeasonId] = useState<string | null>(null);
   const [weekNumber, setWeekNumber] = useState<number | null>(null);
+  const [league, setLeague] = useState<League | null>(null);
+  const [gameVariant, setGameVariant] = useState<string>('');
+  const [gameData, setGameData] = useState<GameData | null>(null);
 
   // Load existing match if editing
   useEffect(() => {
@@ -157,12 +165,23 @@ export default function NewMatch() {
     }
   };
 
-  // Load players when league is selected
+  // Load league and players when league is selected
   useEffect(() => {
-    async function loadPlayers() {
+    async function loadLeagueAndPlayers() {
       if (!db || !selectedLeague) return;
 
       try {
+        // Load league data
+        const leagueData = await findById<League>(db, 'leagues', Number(selectedLeague));
+        setLeague(leagueData);
+
+        // Set default variant based on game type
+        if (leagueData?.gameType && !isEditMode) {
+          const config = getGameConfig(leagueData.gameType);
+          setGameVariant(config.variants[0]);
+        }
+
+        // Load players
         const players = await getLeaguePlayers(db, Number(selectedLeague));
         setLeaguePlayers(players);
 
@@ -171,13 +190,14 @@ export default function NewMatch() {
           setPlayerAId("");
           setPlayerBId("");
           setWinnerId("");
+          setGameData(null);
         }
       } catch (error) {
-        console.error("Failed to load players:", error);
+        console.error("Failed to load league or players:", error);
       }
     }
 
-    loadPlayers();
+    loadLeagueAndPlayers();
   }, [db, selectedLeague]);
 
   // Pre-fill league if provided in query params
@@ -277,6 +297,8 @@ export default function NewMatch() {
           playerBId: Number(playerBId),
           winnerId: Number(winnerId),
           leagueId: Number(selectedLeague),
+          ...(gameVariant && { gameVariant }),
+          ...(gameData && { gameData }),
         });
 
         setIsSubmitting(false);
@@ -292,6 +314,8 @@ export default function NewMatch() {
           ...(seasonId && { seasonId: Number(seasonId) }),
           ...(weekNumber && { weekNumber: weekNumber }),
           ...(prefilledIsMakeup && { isMakeup: Number(prefilledIsMakeup) }),
+          ...(gameVariant && { gameVariant }),
+          ...(gameData && { gameData }),
         });
       }
 
@@ -629,6 +653,39 @@ export default function NewMatch() {
                           </FormControlError>
                         )}
                       </FormControl>
+                    )}
+
+                    {/* Game-Specific Forms */}
+                    {playerAId && playerBId && league && (
+                      <>
+                        {league.gameType === 'pool' && (
+                          <PoolMatchForm
+                            variant={gameVariant as PoolVariant}
+                            onVariantChange={setGameVariant}
+                            onDataChange={setGameData}
+                          />
+                        )}
+
+                        {league.gameType === 'darts' && (
+                          <DartsMatchForm
+                            variant={gameVariant}
+                            onVariantChange={setGameVariant}
+                            playerAName={getPlayerName(playerAId)}
+                            playerBName={getPlayerName(playerBId)}
+                            onDataChange={setGameData}
+                          />
+                        )}
+
+                        {league.gameType === 'dominos' && (
+                          <DominosMatchForm
+                            playerAId={Number(playerAId)}
+                            playerBId={Number(playerBId)}
+                            playerAName={getPlayerName(playerAId)}
+                            playerBName={getPlayerName(playerBId)}
+                            onDataChange={setGameData}
+                          />
+                        )}
+                      </>
                     )}
                   </>
                 )}

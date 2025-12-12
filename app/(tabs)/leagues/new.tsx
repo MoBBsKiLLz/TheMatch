@@ -20,7 +20,7 @@ import { Center } from "@/components/ui/center";
 import { router, useLocalSearchParams } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { insert, update, findById } from "@/lib/db/queries";
-import { League } from "@/types/league";
+import { League, GameType } from "@/types/league";
 import { ColorPicker } from "@/components/ColorPicker";
 import { LeagueFormat } from "@/types/league";
 import {
@@ -49,6 +49,7 @@ export default function NewLeague() {
   const [color, setColor] = useState("#1E6FFF");
   const [format, setFormat] = useState<LeagueFormat>("round-robin");
   const [defaultDuration, setDefaultDuration] = useState(8);
+  const [gameType, setGameType] = useState<GameType>("pool");
 
   // Load existing league data if editing
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function NewLeague() {
           setColor(league.color || "#1E6FFF");
           setFormat(league.format || "round-robin");
           setDefaultDuration(league.defaultDuration || 8);
+          setGameType(league.gameType || "pool");
         }
       } catch (error) {
         console.error("Failed to load league:", error);
@@ -103,6 +105,7 @@ export default function NewLeague() {
           color: color,
           format: format,
           defaultDuration: finalDuration,
+          gameType: gameType,
         });
       } else {
         await insert(db, "leagues", {
@@ -112,6 +115,7 @@ export default function NewLeague() {
           color: color,
           format: format,
           defaultDuration: finalDuration,
+          gameType: gameType,
         });
       }
 
@@ -190,6 +194,49 @@ export default function NewLeague() {
                   onSubmitEditing={handleSubmit}
                 />
               </Input>
+            </FormControl>
+
+            {/* Game Type */}
+            <FormControl isRequired>
+              <FormControlLabel>
+                <FormControlLabelText>Game Type</FormControlLabelText>
+              </FormControlLabel>
+              <Select
+                selectedValue={gameType}
+                onValueChange={(value) => setGameType(value as GameType)}
+                isDisabled={isSubmitting || isEditMode}
+              >
+                <SelectTrigger variant="outline" size="lg">
+                  <SelectInput
+                    placeholder="Select game type"
+                    value={
+                      gameType === "pool"
+                        ? "Pool"
+                        : gameType === "darts"
+                        ? "Darts"
+                        : "Dominos"
+                    }
+                    className="flex-1"
+                  />
+                  <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                </SelectTrigger>
+                <SelectPortal>
+                  <SelectBackdrop />
+                  <SelectContent>
+                    <SelectDragIndicatorWrapper>
+                      <SelectDragIndicator />
+                    </SelectDragIndicatorWrapper>
+                    <SelectItem label="Pool" value="pool" />
+                    <SelectItem label="Darts" value="darts" />
+                    <SelectItem label="Dominos" value="dominos" />
+                  </SelectContent>
+                </SelectPortal>
+              </Select>
+              <Text size="xs" className="text-typography-400 mt-1">
+                {isEditMode
+                  ? "Cannot be changed after league creation"
+                  : "Choose the type of game for this league"}
+              </Text>
             </FormControl>
 
             {/* General Error */}

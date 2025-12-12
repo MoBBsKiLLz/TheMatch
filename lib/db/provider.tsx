@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Database, openDatabase } from "./client";
 import { setupDatabase } from "./schema";
-import { addLeagueColorColumn, addLeagueFormatSettings, addSeasonColumnsToMatches, addTournamentSeriesFormat } from "./migrations";
+import { addLeagueColorColumn, addLeagueFormatSettings, addSeasonColumnsToMatches, addTournamentSeriesFormat, addGameTypeToLeagues, addGameDataToMatches } from "./migrations";
 
 type DatabaseContextType = {
   db: Database | null;
@@ -35,6 +35,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         await addLeagueFormatSettings(dbInstance);
         await addSeasonColumnsToMatches(dbInstance);
         await addTournamentSeriesFormat(dbInstance);
+        await addGameTypeToLeagues(dbInstance);
+        await addGameDataToMatches(dbInstance);
 
         setDb(dbInstance);
       } catch (error) {
