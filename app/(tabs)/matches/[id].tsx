@@ -175,6 +175,15 @@ export default function MatchDetail() {
         <VStack space="2xl">
           {/* Header */}
           <VStack space="sm">
+            <HStack className="justify-between items-center">
+              <Button
+                size="sm"
+                variant="link"
+                onPress={() => router.back()}
+              >
+                <ButtonText>← Back to Matches</ButtonText>
+              </Button>
+            </HStack>
             <Badge
               size="md"
               variant="solid"

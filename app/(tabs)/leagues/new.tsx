@@ -22,18 +22,33 @@ import { useDatabase } from "@/lib/db/provider";
 import { insert, update, findById } from "@/lib/db/queries";
 import { League } from "@/types/league";
 import { ColorPicker } from "@/components/ColorPicker";
+import { LeagueFormat } from "@/types/league";
+import {
+  Select,
+  SelectTrigger,
+  SelectInput,
+  SelectIcon,
+  SelectPortal,
+  SelectItem,
+  SelectBackdrop,
+  SelectContent,
+  SelectDragIndicator,
+  SelectDragIndicatorWrapper,
+} from "@/components/ui/select";
+import { ChevronDownIcon } from "lucide-react-native";
 
 export default function NewLeague() {
   const { db } = useDatabase();
   const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
   const isEditMode = mode === "edit" && !!id;
   const [name, setName] = useState("");
-  const [season, setSeason] = useState("");
   const [location, setLocation] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(isEditMode ? true : false);
   const [error, setError] = useState("");
   const [color, setColor] = useState("#1E6FFF");
+  const [format, setFormat] = useState<LeagueFormat>("round-robin");
+  const [defaultDuration, setDefaultDuration] = useState(8);
 
   // Load existing league data if editing
   useEffect(() => {
@@ -44,9 +59,10 @@ export default function NewLeague() {
         const league = await findById<League>(db, "leagues", Number(id));
         if (league) {
           setName(league.name);
-          setSeason(league.season || "");
           setLocation(league.location || "");
           setColor(league.color || "#1E6FFF");
+          setFormat(league.format || "round-robin");
+          setDefaultDuration(league.defaultDuration || 8);
         }
       } catch (error) {
         console.error("Failed to load league:", error);
@@ -60,7 +76,6 @@ export default function NewLeague() {
   }, [db, id, isEditMode]);
 
   const handleSubmit = async () => {
-    // Clear previous errors
     setError("");
 
     // Validation
@@ -68,6 +83,9 @@ export default function NewLeague() {
       setError("League name is required");
       return;
     }
+
+    // Ensure duration is valid
+    const finalDuration = defaultDuration > 0 ? defaultDuration : 8;
 
     if (!db) {
       setError("Database not ready. Please try again.");
@@ -79,25 +97,24 @@ export default function NewLeague() {
 
     try {
       if (isEditMode) {
-        // Update existing league
         await update(db, "leagues", Number(id), {
           name: name.trim(),
-          season: season.trim() || null,
           location: location.trim() || null,
           color: color,
+          format: format,
+          defaultDuration: finalDuration,
         });
       } else {
-        // Create New League
         await insert(db, "leagues", {
           name: name.trim(),
-          season: season.trim() || null,
           location: location.trim() || null,
           createdAt: Date.now(),
           color: color,
+          format: format,
+          defaultDuration: finalDuration,
         });
       }
 
-      // Navigate back to leagues list
       router.back();
     } catch (error) {
       console.error("Failed to create league:", error);
@@ -157,23 +174,6 @@ export default function NewLeague() {
               )}
             </FormControl>
 
-            {/* Season */}
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>Season</FormControlLabelText>
-              </FormControlLabel>
-              <Input variant="outline" size="lg">
-                <InputField
-                  placeholder="e.g. Fall 2024, Winter 2025"
-                  value={season}
-                  onChangeText={setSeason}
-                  editable={!isSubmitting}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                />
-              </Input>
-            </FormControl>
-
             {/* Location */}
             <FormControl>
               <FormControlLabel>
@@ -208,6 +208,78 @@ export default function NewLeague() {
             onColorSelect={setColor}
             disabled={isSubmitting}
           />
+
+          <FormControl>
+            <FormControlLabel>
+              <FormControlLabelText>League Format</FormControlLabelText>
+            </FormControlLabel>
+            <Select
+              selectedValue={format}
+              onValueChange={(value) => setFormat(value as LeagueFormat)}
+              isDisabled={isSubmitting}
+            >
+              <SelectTrigger variant="outline" size="lg">
+                <SelectInput
+                  placeholder="Select format"
+                  value={format === "round-robin" ? "Round Robin" : format}
+                  className="flex-1"
+                />
+                <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+              </SelectTrigger>
+              <SelectPortal>
+                <SelectBackdrop />
+                <SelectContent>
+                  <SelectDragIndicatorWrapper>
+                    <SelectDragIndicator />
+                  </SelectDragIndicatorWrapper>
+                  <SelectItem label="Round Robin" value="round-robin" />
+                  <SelectItem label="Swiss System" value="swiss" />
+                  <SelectItem label="Ladder/Rankings" value="ladder" />
+                  <SelectItem label="Custom" value="custom" />
+                </SelectContent>
+              </SelectPortal>
+            </Select>
+            <Text size="xs" className="text-typography-400 mt-1">
+              Round Robin: Everyone plays everyone each week
+            </Text>
+          </FormControl>
+
+          <FormControl>
+            <FormControlLabel>
+              <FormControlLabelText>
+                Default Season Length (Weeks)
+              </FormControlLabelText>
+            </FormControlLabel>
+            <Input variant="outline" size="lg">
+              <InputField
+                placeholder="8"
+                value={defaultDuration === 0 ? "" : String(defaultDuration)}
+                onChangeText={(text) => {
+                  // Allow empty input for deletion
+                  if (text === "") {
+                    setDefaultDuration(0);
+                    return;
+                  }
+
+                  const num = parseInt(text);
+                  if (!isNaN(num) && num > 0 && num <= 52) {
+                    setDefaultDuration(num);
+                  }
+                }}
+                onBlur={() => {
+                  // If empty on blur, reset to default
+                  if (defaultDuration === 0) {
+                    setDefaultDuration(8);
+                  }
+                }}
+                keyboardType="number-pad"
+                editable={!isSubmitting}
+              />
+            </Input>
+            <Text size="xs" className="text-typography-400 mt-1">
+              Typical length for new seasons (1-52 weeks)
+            </Text>
+          </FormControl>
 
           {/* Action Buttons */}
           <HStack space="md" className="mt-4">

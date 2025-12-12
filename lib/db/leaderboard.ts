@@ -20,27 +20,58 @@ export type HeadToHeadRecord = {
 
 export async function getLeagueLeaderboard(
   db: Database,
-  leagueId: number
+  leagueId: number,
+  seasonId?: number
 ): Promise<LeaderboardEntry[]> {
-  const players = await db.all<{
-    playerId: number;
-    firstName: string;
-    lastName: string;
-    wins: number;
-    losses: number;
-  }>(
-    `SELECT 
-      p.id as playerId,
-      p.firstName,
-      p.lastName,
-      pl.wins,
-      pl.losses
-    FROM player_leagues pl
-    INNER JOIN players p ON pl.playerId = p.id
-    WHERE pl.leagueId = ?
-    ORDER BY pl.wins DESC, p.lastName ASC`,
-    [leagueId]
-  );
+  let players;
+
+  if (seasonId) {
+    // Season-specific standings: calculate from matches in this season
+    players = await db.all<{
+      playerId: number;
+      firstName: string;
+      lastName: string;
+      wins: number;
+      losses: number;
+    }>(
+      `SELECT
+        p.id as playerId,
+        p.firstName,
+        p.lastName,
+        COALESCE(SUM(CASE WHEN m.winnerId = p.id THEN 1 ELSE 0 END), 0) as wins,
+        COALESCE(SUM(CASE WHEN m.winnerId IS NOT NULL AND m.winnerId != p.id THEN 1 ELSE 0 END), 0) as losses
+      FROM player_leagues pl
+      INNER JOIN players p ON pl.playerId = p.id
+      LEFT JOIN matches m ON m.leagueId = pl.leagueId
+        AND m.seasonId = ?
+        AND (m.playerAId = p.id OR m.playerBId = p.id)
+      WHERE pl.leagueId = ?
+      GROUP BY p.id, p.firstName, p.lastName
+      ORDER BY wins DESC, p.lastName ASC`,
+      [seasonId, leagueId]
+    );
+  } else {
+    // League-wide standings: use player_leagues aggregate
+    players = await db.all<{
+      playerId: number;
+      firstName: string;
+      lastName: string;
+      wins: number;
+      losses: number;
+    }>(
+      `SELECT
+        p.id as playerId,
+        p.firstName,
+        p.lastName,
+        pl.wins,
+        pl.losses
+      FROM player_leagues pl
+      INNER JOIN players p ON pl.playerId = p.id
+      WHERE pl.leagueId = ?
+      ORDER BY pl.wins DESC, p.lastName ASC`,
+      [leagueId]
+    );
+  }
 
   // Calculate stats and assign ranks
   let currentRank = 1;
@@ -80,18 +111,25 @@ export async function getHeadToHeadRecord(
   db: Database,
   playerId: number,
   opponentId: number,
-  leagueId: number
+  leagueId: number,
+  seasonId?: number
 ): Promise<HeadToHeadRecord> {
-  // Get all matches between these two players in this league
-  const matches = await db.all<{
-    winnerId: number | null;
-  }>(
-    `SELECT winnerId
+  // Get all matches between these two players in this league (optionally filtered by season)
+  let query = `SELECT winnerId
      FROM matches
      WHERE leagueId = ?
-     AND ((playerAId = ? AND playerBId = ?) OR (playerAId = ? AND playerBId = ?))`,
-    [leagueId, playerId, opponentId, opponentId, playerId]
-  );
+     AND ((playerAId = ? AND playerBId = ?) OR (playerAId = ? AND playerBId = ?))`;
+
+  const params: any[] = [leagueId, playerId, opponentId, opponentId, playerId];
+
+  if (seasonId) {
+    query += ` AND seasonId = ?`;
+    params.push(seasonId);
+  }
+
+  const matches = await db.all<{
+    winnerId: number | null;
+  }>(query, params);
 
   let wins = 0;
   let losses = 0;
@@ -116,11 +154,12 @@ export async function getHeadToHeadRecord(
 export async function resolveLeaderboardTies(
   db: Database,
   leagueId: number,
-  leaderboard: LeaderboardEntry[]
+  leaderboard: LeaderboardEntry[],
+  seasonId?: number
 ): Promise<LeaderboardEntry[]> {
   // Group players by wins
   const winGroups = new Map<number, LeaderboardEntry[]>();
-  
+
   leaderboard.forEach((entry) => {
     const group = winGroups.get(entry.wins) || [];
     group.push(entry);
@@ -138,7 +177,7 @@ export async function resolveLeaderboardTies(
       currentRank++;
     } else {
       // Tie - use head-to-head
-      const sortedGroup = await sortByHeadToHead(db, leagueId, group);
+      const sortedGroup = await sortByHeadToHead(db, leagueId, group, seasonId);
       sortedGroup.forEach((entry) => {
         resolvedLeaderboard.push({ ...entry, rank: currentRank });
       });
@@ -152,7 +191,8 @@ export async function resolveLeaderboardTies(
 async function sortByHeadToHead(
   db: Database,
   leagueId: number,
-  players: LeaderboardEntry[]
+  players: LeaderboardEntry[],
+  seasonId?: number
 ): Promise<LeaderboardEntry[]> {
   // Calculate head-to-head win percentage for each player against others in the group
   const h2hScores = await Promise.all(
@@ -167,7 +207,8 @@ async function sortByHeadToHead(
           db,
           player.playerId,
           opponent.playerId,
-          leagueId
+          leagueId,
+          seasonId
         );
 
         totalWins += h2h.wins;

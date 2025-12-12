@@ -30,6 +30,7 @@ import { useRouter, useFocusEffect, Href } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { MatchWithDetails } from "@/types/match";
 import { League } from "@/types/league";
+import { Season } from "@/types/season";
 import { getMatchesWithDetails, deleteMatch } from "@/lib/db/matches";
 import { Icon } from "@/components/ui/icon";
 import { Eye, Trash2 } from "lucide-react-native";
@@ -39,7 +40,9 @@ export default function Matches() {
   const { db, isLoading: dbLoading } = useDatabase();
   const [matches, setMatches] = useState<MatchWithDetails[]>([]);
   const [leagues, setLeagues] = useState<League[]>([]);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [selectedLeague, setSelectedLeague] = useState<string>("all");
+  const [selectedSeason, setSelectedSeason] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -53,10 +56,18 @@ export default function Matches() {
       );
       setLeagues(leagueResults);
 
-      // Fetch matches (filtered or all)
-      const leagueId =
-        selectedLeague === "all" ? undefined : Number(selectedLeague);
-      const matchResults = await getMatchesWithDetails(db, leagueId);
+      // Fetch seasons (filtered by league if selected)
+      const leagueId = selectedLeague === "all" ? undefined : Number(selectedLeague);
+      const seasonQuery = leagueId
+        ? "SELECT * FROM seasons WHERE leagueId = ? ORDER BY startDate DESC"
+        : "SELECT * FROM seasons ORDER BY startDate DESC";
+      const seasonParams = leagueId ? [leagueId] : [];
+      const seasonResults = await db.all<Season>(seasonQuery, seasonParams);
+      setSeasons(seasonResults);
+
+      // Fetch matches (filtered by league and/or season)
+      const seasonId = selectedSeason === "all" ? undefined : Number(selectedSeason);
+      const matchResults = await getMatchesWithDetails(db, leagueId, seasonId);
       setMatches(matchResults);
     } catch (error) {
       console.error("Failed to fetch matches: ", error);
@@ -72,8 +83,14 @@ export default function Matches() {
         setIsLoading(true);
         fetchData();
       }
-    }, [db, selectedLeague])
+    }, [db, selectedLeague, selectedSeason])
   );
+
+  // Reset season filter when league changes
+  const handleLeagueChange = (value: string) => {
+    setSelectedLeague(value);
+    setSelectedSeason("all"); // Reset season when league changes
+  };
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -154,49 +171,91 @@ export default function Matches() {
             Matches
           </Heading>
 
-          {/* League Filter */}
+          {/* Filters */}
           {leagues.length > 0 && (
-            <Select
-              selectedValue={selectedLeague}
-              onValueChange={setSelectedLeague}
-            >
-              <SelectTrigger variant="outline" size="lg">
-                <SelectInput
-                  className="flex-1" 
-                  placeholder="Filter by league"
-                  value={
-                    selectedLeague === "all"
-                      ? "All Leagues"
-                      : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
-                  }
-                />
-                <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
-              </SelectTrigger>
-              <SelectPortal>
-                <SelectBackdrop />
-                <SelectContent>
-                  <SelectDragIndicatorWrapper>
-                    <SelectDragIndicator />
-                  </SelectDragIndicatorWrapper>
-                  <SelectItem label="All Leagues" value="all" />
-                  {leagues.map((league) => (
-                    <SelectItem
-                      key={league.id}
-                      label={league.name}
-                      value={String(league.id)}
+            <VStack space="md">
+              {/* League Filter */}
+              <Select
+                selectedValue={selectedLeague}
+                onValueChange={handleLeagueChange}
+              >
+                <SelectTrigger variant="outline" size="lg">
+                  <SelectInput
+                    className="flex-1"
+                    placeholder="Filter by league"
+                    value={
+                      selectedLeague === "all"
+                        ? "All Leagues"
+                        : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
+                    }
+                  />
+                  <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                </SelectTrigger>
+                <SelectPortal>
+                  <SelectBackdrop />
+                  <SelectContent>
+                    <SelectDragIndicatorWrapper>
+                      <SelectDragIndicator />
+                    </SelectDragIndicatorWrapper>
+                    <SelectItem label="All Leagues" value="all" />
+                    {leagues.map((league) => (
+                      <SelectItem
+                        key={league.id}
+                        label={league.name}
+                        value={String(league.id)}
+                      />
+                    ))}
+                  </SelectContent>
+                </SelectPortal>
+              </Select>
+
+              {/* Season Filter */}
+              {seasons.length > 0 && (
+                <Select
+                  selectedValue={selectedSeason}
+                  onValueChange={setSelectedSeason}
+                >
+                  <SelectTrigger variant="outline" size="lg">
+                    <SelectInput
+                      className="flex-1"
+                      placeholder="Filter by season"
+                      value={
+                        selectedSeason === "all"
+                          ? "All Seasons"
+                          : seasons.find((s) => String(s.id) === selectedSeason)?.name || ""
+                      }
                     />
-                  ))}
-                </SelectContent>
-              </SelectPortal>
-            </Select>
+                    <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                  </SelectTrigger>
+                  <SelectPortal>
+                    <SelectBackdrop />
+                    <SelectContent>
+                      <SelectDragIndicatorWrapper>
+                        <SelectDragIndicator />
+                      </SelectDragIndicatorWrapper>
+                      <SelectItem label="All Seasons" value="all" />
+                      {seasons.map((season) => (
+                        <SelectItem
+                          key={season.id}
+                          label={season.name}
+                          value={String(season.id)}
+                        />
+                      ))}
+                    </SelectContent>
+                  </SelectPortal>
+                </Select>
+              )}
+            </VStack>
           )}
 
           {matches.length === 0 ? (
             <Center className="mt-20">
               <VStack space="sm" className="items-center">
                 <Text size="lg" className="text-typography-500 text-center">
-                  {selectedLeague === "all"
+                  {selectedLeague === "all" && selectedSeason === "all"
                     ? "No matches recorded yet."
+                    : selectedSeason !== "all"
+                    ? "No matches in this season."
                     : "No matches in this league."}
                 </Text>
                 <Text size="lg" className="text-typography-500 text-center">

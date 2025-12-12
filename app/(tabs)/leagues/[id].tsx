@@ -25,6 +25,11 @@ import {
   resolveLeaderboardTies,
   LeaderboardEntry,
 } from "@/lib/db/leaderboard";
+import { getActiveSeason, getLeagueSeasons } from "@/lib/db/seasons";
+import { Season } from "@/types/season";
+import { Pressable } from "@/components/ui/pressable";
+import { Badge, BadgeText } from "@/components/ui/badge";
+import { Href } from "expo-router/build/types";
 
 export default function LeagueDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -42,6 +47,8 @@ export default function LeagueDetails() {
     }[]
   >([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [activeSeason, setActiveSeason] = useState<Season | null>(null);
+  const [allSeasons, setAllSeasons] = useState<Season[]>([]);
 
   const fetchLeague = async () => {
     if (!db || !id) return;
@@ -55,14 +62,23 @@ export default function LeagueDetails() {
       const players = await getLeaguePlayers(db, Number(id));
       setLeaguePlayers(players);
 
-      // Fetch leaderboard with tie resolution
-      const standings = await getLeagueLeaderboard(db, Number(id));
+      // Fetch active season first to determine which standings to show
+      const active = await getActiveSeason(db, Number(id));
+      setActiveSeason(active);
+
+      // Fetch leaderboard with tie resolution (season-specific if there's an active season)
+      const seasonIdForStandings = active?.id;
+      const standings = await getLeagueLeaderboard(db, Number(id), seasonIdForStandings);
       const resolvedStandings = await resolveLeaderboardTies(
         db,
         Number(id),
-        standings
+        standings,
+        seasonIdForStandings
       );
       setLeaderboard(resolvedStandings);
+
+      const seasons = await getLeagueSeasons(db, Number(id));
+      setAllSeasons(seasons);
     } catch (error) {
       console.error("Failed to fetch league:", error);
     } finally {
@@ -198,16 +214,16 @@ export default function LeagueDetails() {
             </Heading>
 
             <VStack space="md">
-              {league.season && (
-                <VStack space="xs">
-                  <Text size="sm" className="text-typography-500 font-medium">
-                    Season
-                  </Text>
-                  <Text size="md" className="text-typography-900">
-                    {league.season}
-                  </Text>
-                </VStack>
-              )}
+              <VStack space="xs">
+                <Text size="sm" className="text-typography-500 font-medium">
+                  Format
+                </Text>
+                <Text size="md" className="text-typography-900">
+                  {league.format === 'round-robin' ? 'Round Robin' :
+                   league.format === 'swiss' ? 'Swiss' :
+                   league.format === 'ladder' ? 'Ladder' : 'Custom'}
+                </Text>
+              </VStack>
 
               {league.location && (
                 <VStack space="xs">
@@ -233,12 +249,129 @@ export default function LeagueDetails() {
 
           <Divider />
 
+          {/* Season Section */}
+          <VStack space="lg">
+            <HStack className="justify-between items-center">
+              <Heading size="lg" className="text-typography-800">
+                Current Season
+              </Heading>
+              {!activeSeason && (
+                <Button
+                  size="sm"
+                  action="primary"
+                  onPress={() =>
+                    router.push(`/leagues/${id}/seasons/new` as Href)
+                  }
+                >
+                  <ButtonText>Start Season</ButtonText>
+                </Button>
+              )}
+            </HStack>
+
+            {activeSeason ? (
+              <Card size="md" variant="outline" className="p-4">
+                <VStack space="md">
+                  <HStack className="justify-between items-center">
+                    <VStack space="xs">
+                      <Text className="text-typography-900 font-semibold text-lg">
+                        {activeSeason.name}
+                      </Text>
+                      <Text size="sm" className="text-typography-500">
+                        Week {activeSeason.currentWeek} of{" "}
+                        {activeSeason.weeksDuration}
+                      </Text>
+                    </VStack>
+                    <Badge size="md" variant="solid" action="success">
+                      <BadgeText>Active</BadgeText>
+                    </Badge>
+                  </HStack>
+
+                  <HStack space="sm">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onPress={() =>
+                        router.push(
+                          `/leagues/${id}/seasons/${activeSeason.id}` as Href
+                        )
+                      }
+                    >
+                      <ButtonText>Manage Season</ButtonText>
+                    </Button>
+                  </HStack>
+                </VStack>
+              </Card>
+            ) : (
+              <Card size="md" variant="outline" className="p-4">
+                <VStack space="md" className="items-center">
+                  <Text className="text-typography-500 text-center">
+                    No active season. Start one to begin tracking weekly
+                    matches!
+                  </Text>
+                </VStack>
+              </Card>
+            )}
+
+            {/* Past Seasons */}
+            {allSeasons.filter((s) => s.status !== "active").length > 0 && (
+              <>
+                <Heading size="md" className="text-typography-700 mt-4">
+                  Past Seasons
+                </Heading>
+                <VStack space="sm">
+                  {allSeasons
+                    .filter((s) => s.status !== "active")
+                    .map((season) => (
+                      <Pressable
+                        key={season.id}
+                        onPress={() =>
+                          router.push(
+                            `/leagues/${id}/seasons/${season.id}` as Href
+                          )
+                        }
+                      >
+                        <Card size="sm" variant="outline" className="p-3">
+                          <HStack className="justify-between items-center">
+                            <VStack space="xs">
+                              <Text className="text-typography-900 font-medium">
+                                {season.name}
+                              </Text>
+                              <Text size="xs" className="text-typography-500">
+                                {season.weeksDuration} weeks • {season.status}
+                              </Text>
+                            </VStack>
+                            <Badge size="sm" variant="outline" action="muted">
+                              <BadgeText>View</BadgeText>
+                            </Badge>
+                          </HStack>
+                        </Card>
+                      </Pressable>
+                    ))}
+                </VStack>
+              </>
+            )}
+          </VStack>
+
+          <Divider />
+
           {/* Leaderboard Section */}
           <VStack space="lg">
-            <Heading size="lg" className="text-typography-800">
-              Standings
-            </Heading>
-            <Leaderboard entries={leaderboard} leagueId={Number(id)} showRank={true} />
+            <HStack className="justify-between items-center">
+              <Heading size="lg" className="text-typography-800">
+                Standings
+              </Heading>
+              {activeSeason && (
+                <Text size="sm" className="text-typography-500">
+                  {activeSeason.name}
+                </Text>
+              )}
+            </HStack>
+            <Leaderboard
+              entries={leaderboard}
+              leagueId={Number(id)}
+              showRank={true}
+            />
           </VStack>
 
           <Divider />

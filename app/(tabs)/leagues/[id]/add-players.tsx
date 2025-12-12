@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView } from '@/components/ui/scroll-view';
@@ -9,6 +9,8 @@ import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Checkbox, CheckboxIndicator, CheckboxIcon, CheckboxLabel } from '@/components/ui/checkbox';
 import { CheckIcon } from '@/components/ui/icon';
+import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
+import { Search } from 'lucide-react-native';
 import { Spinner } from '@/components/ui/spinner';
 import { Center } from '@/components/ui/center';
 import { Card } from '@/components/ui/card';
@@ -28,6 +30,7 @@ export default function AddPlayers() {
   const [selectedPlayers, setSelectedPlayers] = useState<Set<number>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     async function fetchPlayers() {
@@ -73,6 +76,28 @@ export default function AddPlayers() {
     }
     setSelectedPlayers(newSelected);
   };
+
+  const handleSelectAll = () => {
+    setSelectedPlayers(new Set(filteredPlayers.map(p => p.id)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedPlayers(new Set());
+  };
+
+  // Filter players based on search query
+  const filteredPlayers = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return players;
+    }
+
+    const query = searchQuery.toLowerCase();
+    return players.filter(player =>
+      player.firstName.toLowerCase().includes(query) ||
+      player.lastName.toLowerCase().includes(query) ||
+      `${player.firstName} ${player.lastName}`.toLowerCase().includes(query)
+    );
+  }, [players, searchQuery]);
 
   const handleSave = async () => {
     if (!db || !id) return;
@@ -151,38 +176,81 @@ export default function AddPlayers() {
             </Text>
           </VStack>
 
-          <VStack space="md">
-            {players.map((player) => (
-              <Card
-                key={player.id}
-                size="md"
-                variant="outline"
-                className="p-4"
-              >
-                <Checkbox
-                  value={String(player.id)}
-                  isChecked={selectedPlayers.has(player.id)}
-                  onChange={() => togglePlayer(player.id)}
-                  isDisabled={isSaving}
+          {/* Search and Bulk Actions */}
+          {players.length > 0 && (
+            <VStack space="md">
+              <Input variant="outline" size="md">
+                <InputSlot className="pl-3">
+                  <InputIcon as={Search} />
+                </InputSlot>
+                <InputField
+                  placeholder="Search players..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                />
+              </Input>
+
+              <HStack space="sm">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onPress={handleSelectAll}
+                  className="flex-1"
                 >
-                  <CheckboxIndicator>
-                    <CheckboxIcon as={CheckIcon} />
-                  </CheckboxIndicator>
-                  <CheckboxLabel>
-                    <HStack space="sm" className="items-center">
-                      <Text className="text-typography-900">
-                        {player.firstName} {player.lastName}
-                      </Text>
-                      {player.isEnrolled && (
-                        <Text size="xs" className="text-success-600">
-                          (Already enrolled)
+                  <ButtonText>Select All</ButtonText>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onPress={handleDeselectAll}
+                  className="flex-1"
+                >
+                  <ButtonText>Deselect All</ButtonText>
+                </Button>
+              </HStack>
+            </VStack>
+          )}
+
+          <VStack space="md">
+            {filteredPlayers.length === 0 ? (
+              <Center className="py-4">
+                <Text className="text-typography-500 text-center">
+                  No players match your search.
+                </Text>
+              </Center>
+            ) : (
+              filteredPlayers.map((player) => (
+                <Card
+                  key={player.id}
+                  size="md"
+                  variant="outline"
+                  className="p-4"
+                >
+                  <Checkbox
+                    value={String(player.id)}
+                    isChecked={selectedPlayers.has(player.id)}
+                    onChange={() => togglePlayer(player.id)}
+                    isDisabled={isSaving}
+                  >
+                    <CheckboxIndicator>
+                      <CheckboxIcon as={CheckIcon} />
+                    </CheckboxIndicator>
+                    <CheckboxLabel>
+                      <HStack space="sm" className="items-center">
+                        <Text className="text-typography-900">
+                          {player.firstName} {player.lastName}
                         </Text>
-                      )}
-                    </HStack>
-                  </CheckboxLabel>
-                </Checkbox>
-              </Card>
-            ))}
+                        {player.isEnrolled && (
+                          <Text size="xs" className="text-success-600">
+                            (Already enrolled)
+                          </Text>
+                        )}
+                      </HStack>
+                    </CheckboxLabel>
+                  </Checkbox>
+                </Card>
+              ))
+            )}
           </VStack>
 
           <HStack space="md" className="mt-4">

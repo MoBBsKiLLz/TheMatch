@@ -17,6 +17,9 @@ export default function TabLayout() {
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
         headerShown: useClientOnlyValue(false, true),
+        // Disable lazy loading so all tabs mount on app start
+        // This ensures useFocusEffect hooks are set up even if tabs haven't been visited
+        lazy: false,
       }}
     >
       <Tabs.Screen

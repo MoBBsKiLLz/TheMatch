@@ -10,6 +10,9 @@ export async function createMatch(
     playerBId: number;
     winnerId: number | null;
     leagueId: number;
+    seasonId?: number;      
+    weekNumber?: number;    
+    isMakeup?: number;     
   }
 ): Promise<number> {
   // Use the insert helper
@@ -19,6 +22,9 @@ export async function createMatch(
     playerBId: match.playerBId,
     winnerId: match.winnerId,
     leagueId: match.leagueId,
+    seasonId: match.seasonId ?? null,      
+    weekNumber: match.weekNumber ?? null,  
+    isMakeup: match.isMakeup ?? 0,         
     createdAt: Date.now(),
   });
 
@@ -79,10 +85,28 @@ export async function deleteMatch(db: Database, matchId: number): Promise<void> 
 
 export async function getMatchesWithDetails(
   db: Database,
-  leagueId?: number
+  leagueId?: number,
+  seasonId?: number
 ): Promise<MatchWithDetails[]> {
+  const whereClauses = [];
+  const params: number[] = [];
+
+  if (leagueId) {
+    whereClauses.push('m.leagueId = ?');
+    params.push(leagueId);
+  }
+
+  if (seasonId) {
+    whereClauses.push('m.seasonId = ?');
+    params.push(seasonId);
+  }
+
+  const whereClause = whereClauses.length > 0
+    ? `WHERE ${whereClauses.join(' AND ')}`
+    : '';
+
   const query = `
-    SELECT 
+    SELECT
       m.*,
       pA.firstName as playerAFirstName,
       pA.lastName as playerALastName,
@@ -93,11 +117,10 @@ export async function getMatchesWithDetails(
     INNER JOIN players pA ON m.playerAId = pA.id
     INNER JOIN players pB ON m.playerBId = pB.id
     INNER JOIN leagues l ON m.leagueId = l.id
-    ${leagueId ? 'WHERE m.leagueId = ?' : ''}
+    ${whereClause}
     ORDER BY m.date DESC, m.createdAt DESC
   `;
 
-  const params = leagueId ? [leagueId] : [];
   return await db.all<MatchWithDetails>(query, params);
 }
 

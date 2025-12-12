@@ -1,8 +1,11 @@
+export type LeagueFormat = 'round-robin' | 'swiss' | 'ladder' | 'custom';
+
 export type League = {
-    id: number;
-    name: string;
-    season?: string;
-    location: string;
-    color: string;
-    createdAt: number;
-}
+  id: number;
+  name: string;
+  location: string | null;
+  color: string;
+  format: LeagueFormat;
+  defaultDuration: number; // Default weeks for new seasons
+  createdAt: number;
+};

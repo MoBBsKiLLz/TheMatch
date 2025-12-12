@@ -37,7 +37,7 @@ import {
 import { CircleIcon } from "@/components/ui/icon";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { League } from "@/types/league";
 import { Match } from "@/types/match";
@@ -48,10 +48,29 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
 import { Calendar } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
+import { Card } from "@/components/ui/card";
 
 export default function NewMatch() {
   const { db } = useDatabase();
-  const { id, mode } = useLocalSearchParams<{ id?: string; mode?: string }>();
+  const {
+    id,
+    mode,
+    leagueId: prefilledLeagueId,
+    seasonId: prefilledSeasonId,
+    weekNumber: prefilledWeekNumber,
+    playerAId: prefilledPlayerAId,
+    playerBId: prefilledPlayerBId,
+    isMakeup: prefilledIsMakeup,
+  } = useLocalSearchParams<{
+    id?: string;
+    mode?: string;
+    leagueId?: string;
+    seasonId?: string;
+    weekNumber?: string;
+    playerAId?: string;
+    playerBId?: string;
+    isMakeup?: string;
+  }>();
   const isEditMode: boolean = mode === "edit" && !!id;
   const [leagues, setLeagues] = useState<League[]>([]);
   const [selectedLeague, setSelectedLeague] = useState("");
@@ -72,6 +91,8 @@ export default function NewMatch() {
     general?: string;
   }>({});
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [seasonId, setSeasonId] = useState<string | null>(null);
+  const [weekNumber, setWeekNumber] = useState<number | null>(null);
 
   // Load existing match if editing
   useEffect(() => {
@@ -159,6 +180,43 @@ export default function NewMatch() {
     loadPlayers();
   }, [db, selectedLeague]);
 
+  // Pre-fill league if provided in query params
+  useEffect(() => {
+    if (prefilledLeagueId && !isEditMode) {
+      setSelectedLeague(prefilledLeagueId);
+    }
+  }, [prefilledLeagueId, isEditMode]);
+
+  // Store season, week, and makeup flag if provided
+  useEffect(() => {
+    if (prefilledSeasonId) {
+      setSeasonId(prefilledSeasonId);
+    }
+    if (prefilledWeekNumber) {
+      setWeekNumber(Number(prefilledWeekNumber));
+    }
+  }, [prefilledSeasonId, prefilledWeekNumber]);
+
+  // Pre-fill players if provided (for owed matches)
+  useEffect(() => {
+    if (leaguePlayers.length > 0 && !isEditMode) {
+      if (prefilledPlayerAId) {
+        setPlayerAId(prefilledPlayerAId);
+      }
+      if (prefilledPlayerBId) {
+        setPlayerBId(prefilledPlayerBId);
+      }
+    }
+  }, [leaguePlayers, prefilledPlayerAId, prefilledPlayerBId, isEditMode]);
+
+  // Reset form state when component unmounts or when navigation changes
+  useEffect(() => {
+    return () => {
+      // Cleanup function - runs when component unmounts
+      setIsSubmitting(false);
+    };
+  }, []);
+
   const handlePlayerAChange = (value: string) => {
     setPlayerAId(value);
     // If Player B is now the same, clear it
@@ -220,6 +278,9 @@ export default function NewMatch() {
           winnerId: Number(winnerId),
           leagueId: Number(selectedLeague),
         });
+
+        setIsSubmitting(false);
+        router.back();
       } else {
         // Create new match
         await createMatch(db, {
@@ -228,10 +289,26 @@ export default function NewMatch() {
           playerBId: Number(playerBId),
           winnerId: Number(winnerId),
           leagueId: Number(selectedLeague),
+          ...(seasonId && { seasonId: Number(seasonId) }),
+          ...(weekNumber && { weekNumber: weekNumber }),
+          ...(prefilledIsMakeup && { isMakeup: Number(prefilledIsMakeup) }),
         });
       }
 
-      router.back();
+      setIsSubmitting(false);
+
+      // Small delay to ensure DB operations complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Navigate back to season screen if this was a season match
+      if (seasonId && prefilledLeagueId) {
+        // First reset to matches index, then navigate to season
+        // This clears the matches tab navigation stack
+        router.replace("/(tabs)/matches");
+        router.push(`/leagues/${prefilledLeagueId}/seasons/${seasonId}`);
+      } else {
+        router.back();
+      }
     } catch (err) {
       console.error("Failed to save match:", err);
       setErrors({ general: "Failed to save match. Please try again." });
@@ -350,6 +427,18 @@ export default function NewMatch() {
               )}
             </FormControl>
 
+            {/* Season & Week Info (if pre-filled) */}
+            {seasonId && weekNumber && (
+              <Card size="sm" variant="outline" className="p-3 bg-primary-50">
+                <HStack space="sm" className="items-center">
+                  <Text size="sm" className="text-typography-700">
+                    📅 Recording for Week {weekNumber}
+                    {prefilledIsMakeup === "1" && " (Makeup Match)"}
+                  </Text>
+                </HStack>
+              </Card>
+            )}
+
             {/* Match Date */}
             <FormControl>
               <FormControlLabel>
@@ -366,7 +455,11 @@ export default function NewMatch() {
                   <Text className="text-typography-900">
                     {formatDisplayDate(matchDate)}
                   </Text>
-                  <Icon as={Calendar} size="sm" className="text-typography-500" />
+                  <Icon
+                    as={Calendar}
+                    size="sm"
+                    className="text-typography-500"
+                  />
                 </HStack>
               </Button>
               <Text size="xs" className="text-typography-400 mt-1">
@@ -380,11 +473,11 @@ export default function NewMatch() {
                 <DateTimePicker
                   value={new Date(matchDate)}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display={Platform.OS === "ios" ? "spinner" : "default"}
                   onChange={handleDateChange}
                   maximumDate={new Date()}
                 />
-                {Platform.OS === 'ios' && (
+                {Platform.OS === "ios" && (
                   <Button
                     size="sm"
                     action="primary"

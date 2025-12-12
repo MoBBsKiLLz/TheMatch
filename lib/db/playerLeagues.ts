@@ -72,7 +72,7 @@ export async function getPlayerLeagues(db: Database, playerId: number) {
     name: string;
     season: string | null;
     location: string | null;
-    color: string; // Add this
+    color: string;
     wins: number;
     losses: number;
     playerLeagueId: number;
