@@ -39,7 +39,7 @@ import { LeaguePlayer } from "@/types/leaguePlayer";
 import { Href } from "expo-router";
 import { getLeagueLeaderboard, resolveLeaderboardTies, LeaderboardEntry } from "@/lib/db/leaderboard";
 import { Leaderboard } from "@/components/Leaderboard";
-import { getMatchesWithDetails } from "@/lib/db/matches";
+import { getMatchesWithDetails, createMatch } from "@/lib/db/matches";
 import { MatchWithDetails } from "@/types/match";
 import { createTournament, getSeasonTournament } from "@/lib/db/tournaments";
 import { Tournament, TournamentFormat } from "@/types/tournament";
@@ -66,6 +66,7 @@ export default function SeasonDetail() {
   const [leaguePlayers, setLeaguePlayers] = useState<LeaguePlayer[]>([]);
   const [weekAttendance, setWeekAttendance] = useState<number[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<number[]>([]);
+  const [attendanceExpanded, setAttendanceExpanded] = useState<string[]>(["attendance"]);
   const [scheduledMatches, setScheduledMatches] = useState<OwedMatch[]>([]);
   const [makeupMatches, setMakeupMatches] = useState<OwedMatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,6 +109,7 @@ export default function SeasonDetail() {
           );
           setWeekAttendance(attendance);
           setSelectedPlayers(attendance);
+          // Don't auto-expand here - let state control it
 
           // Fetch scheduled matches for current week
           const scheduled = await getScheduledMatches(
@@ -309,6 +311,7 @@ export default function SeasonDetail() {
         selectedPlayers
       );
       setWeekAttendance(selectedPlayers);
+      setAttendanceExpanded([]); // Collapse after saving
       Alert.alert("Success", "Attendance saved!");
       fetchData();
     } catch (error) {
@@ -341,7 +344,8 @@ export default function SeasonDetail() {
 
               await advanceWeek(db, Number(seasonId));
               Alert.alert("Success", `Now on Week ${season.currentWeek + 1}!`);
-              fetchData();
+              await fetchData();
+              setAttendanceExpanded(["attendance"]); // Expand for new week
             } catch (error) {
               console.error("Failed to advance week:", error);
               Alert.alert("Error", "Failed to advance week.");
@@ -415,6 +419,44 @@ export default function SeasonDetail() {
   const handleRecordMatch = (match: OwedMatch, isMakeup: boolean = false) => {
     router.push(
       `/matches/new?leagueId=${id}&seasonId=${seasonId}&weekNumber=${match.weekNumber}&playerAId=${match.playerId}&playerBId=${match.opponentId}&isMakeup=${isMakeup ? 1 : 0}&timestamp=${Date.now()}` as Href
+    );
+  };
+
+  const handleQuickRecordWin = async (match: OwedMatch, winnerId: number, isMakeup: boolean = false) => {
+    if (!db || !id || !seasonId) return;
+
+    const winnerName = winnerId === match.playerId ? match.playerName : match.opponentName;
+
+    Alert.alert(
+      "Record Match",
+      `Record a win for ${winnerName}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Record Win",
+          onPress: async () => {
+            try {
+              await createMatch(db, {
+                leagueId: Number(id),
+                seasonId: Number(seasonId),
+                weekNumber: match.weekNumber,
+                playerAId: match.playerId,
+                playerBId: match.opponentId,
+                winnerId,
+                date: Date.now(),
+                isMakeup: isMakeup ? 1 : 0,
+              });
+
+              // Refresh data
+              await fetchData();
+              Alert.alert("Success", "Match recorded!");
+            } catch (error) {
+              console.error("Failed to record match:", error);
+              Alert.alert("Error", "Failed to record match. Please try again.");
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -501,92 +543,120 @@ export default function SeasonDetail() {
 
           <Divider />
 
-          {/* Attendance Section */}
+          {/* Attendance Section - Collapsible */}
           {season.status === "active" && (
             <>
               <VStack space="lg">
-                <Heading size="lg" className="text-typography-800">
-                  Week {season.currentWeek} Attendance
-                </Heading>
+                <Accordion
+                  variant="unfilled"
+                  size="md"
+                  type="multiple"
+                  value={attendanceExpanded}
+                  onValueChange={setAttendanceExpanded}
+                >
+                  <AccordionItem value="attendance">
+                    <AccordionHeader>
+                      <AccordionTrigger>
+                        {({ isExpanded }: { isExpanded: boolean }) => (
+                          <>
+                            <AccordionTitleText>
+                              Week {season.currentWeek} Attendance ({selectedPlayers.length}/{leaguePlayers.length})
+                              {attendanceChanged && " •"}
+                            </AccordionTitleText>
+                            {attendanceChanged && (
+                              <Badge size="sm" variant="solid" action="warning" className="ml-2">
+                                <BadgeText>Unsaved</BadgeText>
+                              </Badge>
+                            )}
+                            <AccordionIcon as={isExpanded ? ChevronUpIcon : ChevronDownIcon} className="ml-3" />
+                          </>
+                        )}
+                      </AccordionTrigger>
+                    </AccordionHeader>
+                    <AccordionContent>
+                      <VStack space="md" className="pt-2">
+                        {/* Search and Bulk Actions */}
+                        {leaguePlayers.length > 0 && (
+                          <VStack space="md">
+                            <Input variant="outline" size="md">
+                              <InputSlot className="pl-3">
+                                <InputIcon as={Search} />
+                              </InputSlot>
+                              <InputField
+                                placeholder="Search players..."
+                                value={playerSearchQuery}
+                                onChangeText={setPlayerSearchQuery}
+                              />
+                            </Input>
 
-                {/* Search and Bulk Actions */}
-                {leaguePlayers.length > 0 && (
-                  <VStack space="md">
-                    <Input variant="outline" size="md">
-                      <InputSlot className="pl-3">
-                        <InputIcon as={Search} />
-                      </InputSlot>
-                      <InputField
-                        placeholder="Search players..."
-                        value={playerSearchQuery}
-                        onChangeText={setPlayerSearchQuery}
-                      />
-                    </Input>
+                            <HStack space="sm">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={handleSelectAll}
+                                className="flex-1"
+                              >
+                                <ButtonText>Select All</ButtonText>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onPress={handleDeselectAll}
+                                className="flex-1"
+                              >
+                                <ButtonText>Deselect All</ButtonText>
+                              </Button>
+                            </HStack>
+                          </VStack>
+                        )}
 
-                    <HStack space="sm">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onPress={handleSelectAll}
-                        className="flex-1"
-                      >
-                        <ButtonText>Select All</ButtonText>
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onPress={handleDeselectAll}
-                        className="flex-1"
-                      >
-                        <ButtonText>Deselect All</ButtonText>
-                      </Button>
-                    </HStack>
-                  </VStack>
-                )}
+                        <Card size="md" variant="outline" className="p-4">
+                          <VStack space="md">
+                            {leaguePlayers.length === 0 ? (
+                              <Text className="text-typography-500 text-center">
+                                No players in this league yet.
+                              </Text>
+                            ) : filteredPlayers.length === 0 ? (
+                              <Text className="text-typography-500 text-center">
+                                No players match your search.
+                              </Text>
+                            ) : (
+                              filteredPlayers.map((player) => (
+                                <Checkbox
+                                  key={player.id}
+                                  value={String(player.id)}
+                                  isChecked={selectedPlayers.includes(player.id)}
+                                  onChange={() => handleTogglePlayer(player.id)}
+                                  size="md"
+                                >
+                                  <CheckboxIndicator>
+                                    <CheckboxIcon as={CheckIcon} />
+                                  </CheckboxIndicator>
+                                  <CheckboxLabel>
+                                    {player.firstName} {player.lastName}
+                                  </CheckboxLabel>
+                                </Checkbox>
+                              ))
+                            )}
+                          </VStack>
+                        </Card>
 
-                <Card size="md" variant="outline" className="p-4">
-                  <VStack space="md">
-                    {leaguePlayers.length === 0 ? (
-                      <Text className="text-typography-500 text-center">
-                        No players in this league yet.
-                      </Text>
-                    ) : filteredPlayers.length === 0 ? (
-                      <Text className="text-typography-500 text-center">
-                        No players match your search.
-                      </Text>
-                    ) : (
-                      filteredPlayers.map((player) => (
-                        <Checkbox
-                          key={player.id}
-                          value={String(player.id)}
-                          isChecked={selectedPlayers.includes(player.id)}
-                          onChange={() => handleTogglePlayer(player.id)}
-                          size="md"
-                        >
-                          <CheckboxIndicator>
-                            <CheckboxIcon as={CheckIcon} />
-                          </CheckboxIndicator>
-                          <CheckboxLabel>
-                            {player.firstName} {player.lastName}
-                          </CheckboxLabel>
-                        </Checkbox>
-                      ))
-                    )}
-                  </VStack>
-                </Card>
-
-                {attendanceChanged && (
-                  <Button
-                    action="primary"
-                    size="lg"
-                    onPress={handleSaveAttendance}
-                    isDisabled={isSaving}
-                  >
-                    <ButtonText>
-                      {isSaving ? "Saving..." : "Save Attendance"}
-                    </ButtonText>
-                  </Button>
-                )}
+                        {attendanceChanged && (
+                          <Button
+                            action="primary"
+                            size="lg"
+                            onPress={handleSaveAttendance}
+                            isDisabled={isSaving}
+                          >
+                            <ButtonText>
+                              {isSaving ? "Saving..." : "Save Attendance"}
+                            </ButtonText>
+                          </Button>
+                        )}
+                      </VStack>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
               </VStack>
 
               <Divider />
@@ -628,18 +698,29 @@ export default function SeasonDetail() {
                               variant="outline"
                               className="p-3"
                             >
-                              <HStack className="justify-between items-center">
-                                <Text className="text-typography-900 font-medium flex-1">
-                                  vs {match.opponentName}
+                              <VStack space="sm">
+                                <Text className="text-typography-900 font-medium text-center">
+                                  {match.playerName} vs {match.opponentName}
                                 </Text>
-                                <Button
-                                  size="xs"
-                                  action="primary"
-                                  onPress={() => handleRecordMatch(match, false)}
-                                >
-                                  <ButtonText>Record</ButtonText>
-                                </Button>
-                              </HStack>
+                                <HStack space="xs">
+                                  <Button
+                                    size="xs"
+                                    action="primary"
+                                    className="flex-1"
+                                    onPress={() => handleQuickRecordWin(match, match.playerId, false)}
+                                  >
+                                    <ButtonText className="text-xs">{match.playerName.split(' ')[0]} Wins</ButtonText>
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    action="primary"
+                                    className="flex-1"
+                                    onPress={() => handleQuickRecordWin(match, match.opponentId, false)}
+                                  >
+                                    <ButtonText className="text-xs">{match.opponentName.split(' ')[0]} Wins</ButtonText>
+                                  </Button>
+                                </HStack>
+                              </VStack>
                             </Card>
                           ))}
                         </VStack>
@@ -688,23 +769,31 @@ export default function SeasonDetail() {
                               variant="outline"
                               className="p-3 bg-warning-50"
                             >
-                              <VStack space="xs">
-                                <HStack className="justify-between items-center">
-                                  <Text className="text-typography-900 font-medium flex-1">
-                                    vs {match.opponentName}
-                                  </Text>
-                                  <Button
-                                    size="xs"
-                                    variant="outline"
-                                    action="primary"
-                                    onPress={() => handleRecordMatch(match, true)}
-                                  >
-                                    <ButtonText>Record</ButtonText>
-                                  </Button>
-                                </HStack>
-                                <Text size="xs" className="text-typography-500">
+                              <VStack space="sm">
+                                <Text className="text-typography-900 font-medium text-center">
+                                  {match.playerName} vs {match.opponentName}
+                                </Text>
+                                <Text size="xs" className="text-typography-500 text-center">
                                   From Week {match.weekNumber}
                                 </Text>
+                                <HStack space="xs">
+                                  <Button
+                                    size="xs"
+                                    action="primary"
+                                    className="flex-1"
+                                    onPress={() => handleQuickRecordWin(match, match.playerId, true)}
+                                  >
+                                    <ButtonText className="text-xs">{match.playerName.split(' ')[0]} Wins</ButtonText>
+                                  </Button>
+                                  <Button
+                                    size="xs"
+                                    action="primary"
+                                    className="flex-1"
+                                    onPress={() => handleQuickRecordWin(match, match.opponentId, true)}
+                                  >
+                                    <ButtonText className="text-xs">{match.opponentName.split(' ')[0]} Wins</ButtonText>
+                                  </Button>
+                                </HStack>
                               </VStack>
                             </Card>
                           ))}

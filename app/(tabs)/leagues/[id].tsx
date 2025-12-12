@@ -30,6 +30,10 @@ import { Season } from "@/types/season";
 import { Pressable } from "@/components/ui/pressable";
 import { Badge, BadgeText } from "@/components/ui/badge";
 import { Href } from "expo-router/build/types";
+import { createTournament, getSeasonTournament } from "@/lib/db/tournaments";
+import { Tournament } from "@/types/tournament";
+import { Rocket } from "lucide-react-native";
+import { Icon } from "@/components/ui/icon";
 
 export default function LeagueDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -49,6 +53,7 @@ export default function LeagueDetails() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activeSeason, setActiveSeason] = useState<Season | null>(null);
   const [allSeasons, setAllSeasons] = useState<Season[]>([]);
+  const [tournaments, setTournaments] = useState<{ [seasonId: number]: Tournament }>({});
 
   const fetchLeague = async () => {
     if (!db || !id) return;
@@ -79,6 +84,16 @@ export default function LeagueDetails() {
 
       const seasons = await getLeagueSeasons(db, Number(id));
       setAllSeasons(seasons);
+
+      // Fetch tournaments for each completed season
+      const tournamentMap: { [seasonId: number]: Tournament } = {};
+      for (const season of seasons.filter(s => s.status === 'completed')) {
+        const tournament = await getSeasonTournament(db, season.id);
+        if (tournament) {
+          tournamentMap[season.id] = tournament;
+        }
+      }
+      setTournaments(tournamentMap);
     } catch (error) {
       console.error("Failed to fetch league:", error);
     } finally {
@@ -148,6 +163,44 @@ export default function LeagueDetails() {
         },
       },
     ]);
+  };
+
+  const handleStartTournament = async (season: Season) => {
+    if (!db || !id) return;
+
+    try {
+      // Get final standings for this season
+      const standings = await getLeagueLeaderboard(db, Number(id), season.id);
+      const resolvedStandings = await resolveLeaderboardTies(
+        db,
+        Number(id),
+        standings,
+        season.id
+      );
+
+      if (resolvedStandings.length < 2) {
+        Alert.alert("Not Enough Players", "You need at least 2 players to start a tournament.");
+        return;
+      }
+
+      // Create tournament
+      await createTournament(db, {
+        seasonId: season.id,
+        leagueId: Number(id),
+        name: `${season.name} Tournament`,
+        format: 'best-of-3',
+        seededPlayers: resolvedStandings,
+      });
+
+      // Refresh to show tournament
+      await fetchLeague();
+
+      // Navigate to tournament
+      router.push(`/leagues/${id}/seasons/${season.id}/tournament` as Href);
+    } catch (error) {
+      console.error("Failed to create tournament:", error);
+      Alert.alert("Error", "Failed to create tournament. Please try again.");
+    }
   };
 
   if (isLoading) {
@@ -322,32 +375,55 @@ export default function LeagueDetails() {
                 <VStack space="sm">
                   {allSeasons
                     .filter((s) => s.status !== "active")
-                    .map((season) => (
-                      <Pressable
-                        key={season.id}
-                        onPress={() =>
-                          router.push(
-                            `/leagues/${id}/seasons/${season.id}` as Href
-                          )
-                        }
-                      >
-                        <Card size="sm" variant="outline" className="p-3">
-                          <HStack className="justify-between items-center">
-                            <VStack space="xs">
-                              <Text className="text-typography-900 font-medium">
-                                {season.name}
-                              </Text>
-                              <Text size="xs" className="text-typography-500">
-                                {season.weeksDuration} weeks • {season.status}
-                              </Text>
-                            </VStack>
-                            <Badge size="sm" variant="outline" action="muted">
-                              <BadgeText>View</BadgeText>
-                            </Badge>
+                    .map((season) => {
+                      const hasTournament = tournaments[season.id];
+                      return (
+                        <Card key={season.id} size="sm" variant="outline" className="p-3">
+                          <HStack className="justify-between items-center" space="md">
+                            <Pressable
+                              className="flex-1"
+                              onPress={() =>
+                                router.push(
+                                  `/leagues/${id}/seasons/${season.id}` as Href
+                                )
+                              }
+                            >
+                              <VStack space="xs">
+                                <Text className="text-typography-900 font-medium">
+                                  {season.name}
+                                </Text>
+                                <Text size="xs" className="text-typography-500">
+                                  {season.weeksDuration} weeks • {season.status}
+                                </Text>
+                              </VStack>
+                            </Pressable>
+                            <HStack space="xs">
+                              {season.status === 'completed' && !hasTournament && (
+                                <Button
+                                  size="xs"
+                                  action="primary"
+                                  onPress={() => handleStartTournament(season)}
+                                >
+                                  <Icon as={Rocket} size="xs" className="text-white mr-1" />
+                                  <ButtonText>Tournament</ButtonText>
+                                </Button>
+                              )}
+                              <Pressable
+                                onPress={() =>
+                                  router.push(
+                                    `/leagues/${id}/seasons/${season.id}` as Href
+                                  )
+                                }
+                              >
+                                <Badge size="sm" variant="outline" action="muted">
+                                  <BadgeText>View</BadgeText>
+                                </Badge>
+                              </Pressable>
+                            </HStack>
                           </HStack>
                         </Card>
-                      </Pressable>
-                    ))}
+                      );
+                    })}
                 </VStack>
               </>
             )}
