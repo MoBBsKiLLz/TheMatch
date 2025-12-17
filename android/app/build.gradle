@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.starterkitexpo'
+    namespace 'com.mzepeda.starterkitexpo'
     defaultConfig {
-        applicationId 'com.anonymous.starterkitexpo'
+        applicationId 'com.mzepeda.starterkitexpo'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

@@ -1,4 +1,4 @@
-package com.anonymous.starterkitexpo
+package com.mzepeda.starterkitexpo
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
