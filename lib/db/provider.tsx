@@ -7,7 +7,17 @@ import {
 } from "react";
 import { Database, openDatabase } from "./client";
 import { setupDatabase } from "./schema";
-import { addLeagueColorColumn, addLeagueFormatSettings, addSeasonColumnsToMatches, addTournamentSeriesFormat, addGameTypeToLeagues, addGameDataToMatches } from "./migrations";
+import {
+  addLeagueColorColumn,
+  addLeagueFormatSettings,
+  addSeasonColumnsToMatches,
+  addTournamentSeriesFormat,
+  addGameTypeToLeagues,
+  addGameDataToMatches,
+  refactorMatchesForMultiPlayer,
+  refactorPlayerLeagues,
+  ensureLeagueIdNullable
+} from "./migrations";
 
 type DatabaseContextType = {
   db: Database | null;
@@ -37,6 +47,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         await addTournamentSeriesFormat(dbInstance);
         await addGameTypeToLeagues(dbInstance);
         await addGameDataToMatches(dbInstance);
+
+        // MAJOR REFACTOR: Multi-player support
+        await refactorMatchesForMultiPlayer(dbInstance);
+        await refactorPlayerLeagues(dbInstance);
+
+        // Ensure standalone matches are supported
+        await ensureLeagueIdNullable(dbInstance);
 
         setDb(dbInstance);
       } catch (error) {

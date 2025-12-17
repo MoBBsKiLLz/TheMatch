@@ -12,6 +12,8 @@ export const POOL_WIN_METHODS: { value: PoolWinMethod; label: string }[] = [
 export const poolConfig: GameConfig = {
   type: 'pool',
   name: 'Pool',
+  minPlayers: 2,        // Pool is strictly 1v1
+  maxPlayers: 2,
   variants: ['8-ball', '9-ball'],
 
   validateMatchData: (data: any): boolean => {
@@ -20,15 +22,26 @@ export const poolConfig: GameConfig = {
     return POOL_WIN_METHODS.some((m) => m.value === poolData.winMethod);
   },
 
-  determineWinner: (gameData, playerAId, playerBId) => {
-    // Pool is simple - winner already determined by user
-    return null; // Handled at UI level
+  validateParticipants: (participants) => {
+    // Must be exactly 2 players, exactly 1 winner
+    return (
+      participants.length === 2 &&
+      participants.filter((p) => p.isWinner).length === 1
+    );
   },
 
-  getMatchDisplayText: (gameData) => {
-    const data = gameData as PoolGameData;
-    const method = POOL_WIN_METHODS.find((m) => m.value === data.winMethod);
-    return method ? method.label : 'Standard win';
+  determineWinners: (participants) => {
+    // Returns array of winner playerIds
+    return participants.filter((p) => p.isWinner).map((p) => p.playerId);
+  },
+
+  getMatchDisplayText: (participants) => {
+    const winner = participants.find((p) => p.isWinner);
+    const loser = participants.find((p) => !p.isWinner);
+    if (winner && loser) {
+      return `${winner.firstName} ${winner.lastName} defeated ${loser.firstName} ${loser.lastName}`;
+    }
+    return 'Pool match';
   },
 
   getVariantDisplayName: (variant) => {

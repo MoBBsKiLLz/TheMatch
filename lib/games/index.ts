@@ -2,6 +2,7 @@ import { GameRegistry, GameConfig } from './types';
 import { poolConfig } from './pool';
 import { dartsConfig } from './darts';
 import { dominosConfig } from './dominos';
+import { unoConfig } from './uno';
 import { GameType } from '@/types/league';
 import { Match, ParsedMatch } from '@/types/match';
 
@@ -9,6 +10,7 @@ export const gameRegistry: GameRegistry = {
   pool: poolConfig,
   darts: dartsConfig,
   dominos: dominosConfig,
+  uno: unoConfig,
 };
 
 export function getGameConfig(gameType: GameType): GameConfig {
@@ -31,4 +33,5 @@ export function parseGameData(match: Match): ParsedMatch {
 export * from './pool';
 export * from './darts';
 export * from './dominos';
+export * from './uno';
 export * from './types';

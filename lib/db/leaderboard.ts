@@ -26,7 +26,7 @@ export async function getLeagueLeaderboard(
   let players;
 
   if (seasonId) {
-    // Season-specific standings: calculate from matches in this season
+    // Season-specific standings: calculate from match_participants in this season
     players = await db.all<{
       playerId: number;
       firstName: string;
@@ -38,20 +38,19 @@ export async function getLeagueLeaderboard(
         p.id as playerId,
         p.firstName,
         p.lastName,
-        COALESCE(SUM(CASE WHEN m.winnerId = p.id THEN 1 ELSE 0 END), 0) as wins,
-        COALESCE(SUM(CASE WHEN m.winnerId IS NOT NULL AND m.winnerId != p.id THEN 1 ELSE 0 END), 0) as losses
+        COALESCE(SUM(CASE WHEN mp.isWinner = 1 THEN 1 ELSE 0 END), 0) as wins,
+        COALESCE(SUM(CASE WHEN mp.isWinner = 0 THEN 1 ELSE 0 END), 0) as losses
       FROM player_leagues pl
       INNER JOIN players p ON pl.playerId = p.id
-      LEFT JOIN matches m ON m.leagueId = pl.leagueId
-        AND m.seasonId = ?
-        AND (m.playerAId = p.id OR m.playerBId = p.id)
-      WHERE pl.leagueId = ?
+      LEFT JOIN matches m ON m.leagueId = pl.leagueId AND m.seasonId = ?
+      LEFT JOIN match_participants mp ON mp.matchId = m.id AND mp.playerId = p.id
+      WHERE pl.leagueId = ? AND m.status = 'completed'
       GROUP BY p.id, p.firstName, p.lastName
       ORDER BY wins DESC, p.lastName ASC`,
       [seasonId, leagueId]
     );
   } else {
-    // League-wide standings: use player_leagues aggregate
+    // League-wide standings: calculate from all match_participants
     players = await db.all<{
       playerId: number;
       firstName: string;
@@ -63,12 +62,15 @@ export async function getLeagueLeaderboard(
         p.id as playerId,
         p.firstName,
         p.lastName,
-        pl.wins,
-        pl.losses
+        COALESCE(SUM(CASE WHEN mp.isWinner = 1 THEN 1 ELSE 0 END), 0) as wins,
+        COALESCE(SUM(CASE WHEN mp.isWinner = 0 THEN 1 ELSE 0 END), 0) as losses
       FROM player_leagues pl
       INNER JOIN players p ON pl.playerId = p.id
-      WHERE pl.leagueId = ?
-      ORDER BY pl.wins DESC, p.lastName ASC`,
+      LEFT JOIN matches m ON m.leagueId = pl.leagueId
+      LEFT JOIN match_participants mp ON mp.matchId = m.id AND mp.playerId = p.id
+      WHERE pl.leagueId = ? AND (m.status = 'completed' OR m.status IS NULL)
+      GROUP BY p.id, p.firstName, p.lastName
+      ORDER BY wins DESC, p.lastName ASC`,
       [leagueId]
     );
   }
@@ -115,32 +117,47 @@ export async function getHeadToHeadRecord(
   seasonId?: number
 ): Promise<HeadToHeadRecord> {
   // Get all matches between these two players in this league (optionally filtered by season)
-  let query = `SELECT winnerId
-     FROM matches
-     WHERE leagueId = ?
-     AND ((playerAId = ? AND playerBId = ?) OR (playerAId = ? AND playerBId = ?))`;
+  // A match includes both players if both have participant records
+  let query = `
+    SELECT m.id, mp.playerId, mp.isWinner
+    FROM matches m
+    INNER JOIN match_participants mp ON mp.matchId = m.id
+    WHERE m.leagueId = ?
+      AND m.status = 'completed'
+      AND mp.playerId IN (?, ?)
+      AND EXISTS (
+        SELECT 1 FROM match_participants mp2
+        WHERE mp2.matchId = m.id AND mp2.playerId = ?
+      )
+      AND EXISTS (
+        SELECT 1 FROM match_participants mp3
+        WHERE mp3.matchId = m.id AND mp3.playerId = ?
+      )`;
 
-  const params: any[] = [leagueId, playerId, opponentId, opponentId, playerId];
+  const params: any[] = [leagueId, playerId, opponentId, playerId, opponentId];
 
   if (seasonId) {
-    query += ` AND seasonId = ?`;
+    query += ` AND m.seasonId = ?`;
     params.push(seasonId);
   }
 
-  const matches = await db.all<{
-    winnerId: number | null;
+  const results = await db.all<{
+    id: number;
+    playerId: number;
+    isWinner: number;
   }>(query, params);
 
   let wins = 0;
   let losses = 0;
 
-  matches.forEach((match) => {
-    if (match.winnerId === playerId) {
-      wins++;
-    } else if (match.winnerId === opponentId) {
-      losses++;
+  results.forEach((result) => {
+    if (result.playerId === playerId) {
+      if (result.isWinner === 1) {
+        wins++;
+      } else {
+        losses++;
+      }
     }
-    // If winnerId is null, it's a draw/no result - don't count
   });
 
   return {

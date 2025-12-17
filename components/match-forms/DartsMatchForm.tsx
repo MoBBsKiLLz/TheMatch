@@ -27,49 +27,66 @@ import {
   DartsCricketGameData,
   DartsCricketType,
 } from '@/types/games';
+import { ParticipantInfo } from './types';
 
 interface DartsMatchFormProps {
   variant: string;
   onVariantChange: (variant: string) => void;
-  playerAName: string;
-  playerBName: string;
+  participants: ParticipantInfo[];
   onDataChange: (data: DartsGameData) => void;
 }
 
 export function DartsMatchForm({
   variant,
   onVariantChange,
-  playerAName,
-  playerBName,
+  participants,
   onDataChange,
 }: DartsMatchFormProps) {
   const isX01 = ['901', '701', '501', '401', '301'].includes(variant);
   const isCricket = variant === 'cricket';
 
-  // X01 state
-  const [playerAScore, setPlayerAScore] = useState(0);
-  const [playerBScore, setPlayerBScore] = useState(0);
+  // X01 state - array of scores indexed by seatIndex
+  const [scores, setScores] = useState<number[]>(
+    participants.map(() => 0)
+  );
 
   // Cricket state
-  const [playerAPoints, setPlayerAPoints] = useState(0);
-  const [playerBPoints, setPlayerBPoints] = useState(0);
+  const [points, setPoints] = useState<number[]>(
+    participants.map(() => 0)
+  );
   const [cricketType, setCricketType] = useState<DartsCricketType>('standard');
+
+  // Reset scores when participants change
+  useEffect(() => {
+    setScores(participants.map(() => 0));
+    setPoints(participants.map(() => 0));
+  }, [participants.length]);
 
   useEffect(() => {
     if (isX01) {
       onDataChange({
-        playerAScore,
-        playerBScore,
+        scores,
         startingScore: parseInt(variant),
       } as DartsX01GameData);
     } else if (isCricket) {
       onDataChange({
-        playerAPoints,
-        playerBPoints,
+        points,
         cricketType,
       } as DartsCricketGameData);
     }
-  }, [playerAScore, playerBScore, playerAPoints, playerBPoints, cricketType, variant]);
+  }, [scores, points, cricketType, variant]);
+
+  const updateScore = (index: number, value: number) => {
+    const newScores = [...scores];
+    newScores[index] = value;
+    setScores(newScores);
+  };
+
+  const updatePoints = (index: number, value: number) => {
+    const newPoints = [...points];
+    newPoints[index] = value;
+    setPoints(newPoints);
+  };
 
   return (
     <VStack space="lg">
@@ -110,33 +127,23 @@ export function DartsMatchForm({
             Enter the remaining scores (winner should have 0)
           </Text>
 
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{playerAName} Score</FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                keyboardType="number-pad"
-                value={String(playerAScore)}
-                onChangeText={(v) => setPlayerAScore(parseInt(v) || 0)}
-                placeholder="0"
-              />
-            </Input>
-          </FormControl>
-
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{playerBName} Score</FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                keyboardType="number-pad"
-                value={String(playerBScore)}
-                onChangeText={(v) => setPlayerBScore(parseInt(v) || 0)}
-                placeholder="0"
-              />
-            </Input>
-          </FormControl>
+          {participants.map((participant, index) => (
+            <FormControl key={participant.playerId}>
+              <FormControlLabel>
+                <FormControlLabelText>
+                  {participant.firstName} {participant.lastName} Score
+                </FormControlLabelText>
+              </FormControlLabel>
+              <Input variant="outline" size="lg">
+                <InputField
+                  keyboardType="number-pad"
+                  value={String(scores[index] || 0)}
+                  onChangeText={(v) => updateScore(index, parseInt(v) || 0)}
+                  placeholder="0"
+                />
+              </Input>
+            </FormControl>
+          ))}
         </>
       )}
 
@@ -178,33 +185,23 @@ export function DartsMatchForm({
 
           <Heading size="sm">Final Points</Heading>
 
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{playerAName} Points</FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                keyboardType="number-pad"
-                value={String(playerAPoints)}
-                onChangeText={(v) => setPlayerAPoints(parseInt(v) || 0)}
-                placeholder="0"
-              />
-            </Input>
-          </FormControl>
-
-          <FormControl>
-            <FormControlLabel>
-              <FormControlLabelText>{playerBName} Points</FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                keyboardType="number-pad"
-                value={String(playerBPoints)}
-                onChangeText={(v) => setPlayerBPoints(parseInt(v) || 0)}
-                placeholder="0"
-              />
-            </Input>
-          </FormControl>
+          {participants.map((participant, index) => (
+            <FormControl key={participant.playerId}>
+              <FormControlLabel>
+                <FormControlLabelText>
+                  {participant.firstName} {participant.lastName} Points
+                </FormControlLabelText>
+              </FormControlLabel>
+              <Input variant="outline" size="lg">
+                <InputField
+                  keyboardType="number-pad"
+                  value={String(points[index] || 0)}
+                  onChangeText={(v) => updatePoints(index, parseInt(v) || 0)}
+                  placeholder="0"
+                />
+              </Input>
+            </FormControl>
+          ))}
         </>
       )}
     </VStack>

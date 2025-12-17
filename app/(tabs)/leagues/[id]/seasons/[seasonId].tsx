@@ -39,7 +39,7 @@ import { LeaguePlayer } from "@/types/leaguePlayer";
 import { Href } from "expo-router";
 import { getLeagueLeaderboard, resolveLeaderboardTies, LeaderboardEntry } from "@/lib/db/leaderboard";
 import { Leaderboard } from "@/components/Leaderboard";
-import { getMatchesWithDetails, createMatch } from "@/lib/db/matches";
+import { getMatchesWithDetails, createMatch, CreateMatchParticipant } from "@/lib/db/matches";
 import { MatchWithDetails } from "@/types/match";
 import { createTournament, getSeasonTournament } from "@/lib/db/tournaments";
 import { Tournament, TournamentFormat } from "@/types/tournament";
@@ -468,17 +468,29 @@ export default function SeasonDetail() {
             try {
               const poolGameData: PoolGameData = { winMethod: 'made_all_balls' };
 
+              // Build participants array
+              const participants: CreateMatchParticipant[] = [
+                {
+                  playerId: match.playerId,
+                  seatIndex: 0,
+                  isWinner: winnerId === match.playerId,
+                },
+                {
+                  playerId: match.opponentId,
+                  seatIndex: 1,
+                  isWinner: winnerId === match.opponentId,
+                },
+              ];
+
               await createMatch(db, {
+                gameType: 'pool',
                 leagueId: Number(id),
                 seasonId: Number(seasonId),
                 weekNumber: match.weekNumber,
-                playerAId: match.playerId,
-                playerBId: match.opponentId,
-                winnerId,
                 date: Date.now(),
-                isMakeup: isMakeup ? 1 : 0,
                 gameVariant: '8-ball',
                 gameData: poolGameData,
+                participants,
               });
 
               // Refresh data
@@ -971,15 +983,20 @@ export default function SeasonDetail() {
                           <HStack className="justify-between items-center">
                             <VStack space="xs" className="flex-1">
                               <Text className="text-typography-900 font-medium">
-                                {match.playerAFirstName} {match.playerALastName} vs{" "}
-                                {match.playerBFirstName} {match.playerBLastName}
+                                {match.participants.map((p, idx) => (
+                                  <React.Fragment key={p.id}>
+                                    {idx > 0 && " vs "}
+                                    {p.firstName} {p.lastName}
+                                  </React.Fragment>
+                                ))}
                               </Text>
-                              {match.winnerId && (
+                              {match.participants.some(p => p.isWinner) && (
                                 <Text size="sm" className="text-typography-600">
                                   Winner:{" "}
-                                  {match.winnerId === match.playerAId
-                                    ? `${match.playerAFirstName} ${match.playerALastName}`
-                                    : `${match.playerBFirstName} ${match.playerBLastName}`}
+                                  {match.participants
+                                    .filter(p => p.isWinner)
+                                    .map(w => `${w.firstName} ${w.lastName}`)
+                                    .join(", ")}
                                 </Text>
                               )}
                               <Text size="xs" className="text-typography-500">

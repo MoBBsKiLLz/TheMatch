@@ -128,11 +128,20 @@ export async function getScheduledMatches(
       const playerB = players[j];
 
       // Check if match already recorded for this specific week
+      // Find a match where both players are participants
       const matchExists = await db.get<{ id: number }>(
-        `SELECT id FROM matches
-         WHERE seasonId = ? AND weekNumber = ?
-         AND ((playerAId = ? AND playerBId = ?) OR (playerAId = ? AND playerBId = ?))`,
-        [seasonId, currentWeekNumber, playerA.playerId, playerB.playerId, playerB.playerId, playerA.playerId]
+        `SELECT m.id
+         FROM matches m
+         WHERE m.seasonId = ? AND m.weekNumber = ?
+         AND EXISTS (
+           SELECT 1 FROM match_participants mp1
+           WHERE mp1.matchId = m.id AND mp1.playerId = ?
+         )
+         AND EXISTS (
+           SELECT 1 FROM match_participants mp2
+           WHERE mp2.matchId = m.id AND mp2.playerId = ?
+         )`,
+        [seasonId, currentWeekNumber, playerA.playerId, playerB.playerId]
       );
 
       if (!matchExists) {
@@ -208,10 +217,18 @@ export async function getMakeupMatches(
           // Check if they've played this opponent in THAT SPECIFIC WEEK
           // (or recorded a makeup match for that week)
           const matchExists = await db.get<{ id: number }>(
-            `SELECT id FROM matches
-             WHERE seasonId = ? AND weekNumber = ?
-             AND ((playerAId = ? AND playerBId = ?) OR (playerAId = ? AND playerBId = ?))`,
-            [seasonId, week, currentPlayer.playerId, pastPlayer.playerId, pastPlayer.playerId, currentPlayer.playerId]
+            `SELECT m.id
+             FROM matches m
+             WHERE m.seasonId = ? AND m.weekNumber = ?
+             AND EXISTS (
+               SELECT 1 FROM match_participants mp1
+               WHERE mp1.matchId = m.id AND mp1.playerId = ?
+             )
+             AND EXISTS (
+               SELECT 1 FROM match_participants mp2
+               WHERE mp2.matchId = m.id AND mp2.playerId = ?
+             )`,
+            [seasonId, week, currentPlayer.playerId, pastPlayer.playerId]
           );
 
           if (!matchExists) {

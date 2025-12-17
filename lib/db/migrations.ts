@@ -134,3 +134,233 @@ export async function addGameDataToMatches(db: Database): Promise<void> {
     console.error('Failed to add game data columns:', error);
   }
 }
+
+// MAJOR REFACTOR: Multi-player match support
+export async function refactorMatchesForMultiPlayer(db: Database): Promise<void> {
+  try {
+    console.log('Starting multi-player refactor...');
+
+    // Check if matches table has the old structure
+    const matchesInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(matches)"
+    );
+    const hasPlayerAId = matchesInfo.some(col => col.name === 'playerAId');
+
+    if (!hasPlayerAId) {
+      console.log('Matches table already refactored, skipping...');
+      return;
+    }
+
+    // Drop old tables (test data will be lost)
+    await db.run('DROP TABLE IF EXISTS match_participants');
+    await db.run('DROP TABLE IF EXISTS matches');
+    console.log('Dropped old matches and match_participants tables');
+
+    // Create new matches table with gameType as first-class field
+    // leagueId is now optional to support standalone matches
+    await db.run(`
+      CREATE TABLE matches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        gameType TEXT NOT NULL,
+        leagueId INTEGER,
+        seasonId INTEGER,
+        weekNumber INTEGER,
+        isMakeup INTEGER DEFAULT 0,
+        date INTEGER NOT NULL,
+        status TEXT DEFAULT 'completed',
+        gameVariant TEXT,
+        gameData TEXT,
+        createdAt INTEGER NOT NULL,
+        FOREIGN KEY (leagueId) REFERENCES leagues(id),
+        FOREIGN KEY (seasonId) REFERENCES seasons(id)
+      )
+    `);
+    console.log('Created new matches table with gameType');
+
+    // Create match_participants table
+    await db.run(`
+      CREATE TABLE match_participants (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        matchId INTEGER NOT NULL,
+        playerId INTEGER NOT NULL,
+        seatIndex INTEGER NOT NULL,
+        score INTEGER,
+        finishPosition INTEGER,
+        isWinner INTEGER DEFAULT 0,
+        FOREIGN KEY (matchId) REFERENCES matches(id) ON DELETE CASCADE,
+        FOREIGN KEY (playerId) REFERENCES players(id)
+      )
+    `);
+    console.log('Created match_participants table');
+
+    console.log('Multi-player refactor completed successfully');
+  } catch (error) {
+    console.error('Failed to refactor matches for multi-player:', error);
+    throw error;
+  }
+}
+
+export async function refactorPlayerLeagues(db: Database): Promise<void> {
+  try {
+    console.log('Starting player_leagues refactor...');
+
+    // Check if player_leagues has wins/losses columns
+    const tableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(player_leagues)"
+    );
+    const hasWins = tableInfo.some(col => col.name === 'wins');
+
+    if (!hasWins) {
+      console.log('player_leagues already refactored, skipping...');
+      return;
+    }
+
+    // Get existing data
+    const existingData = await db.all<{
+      id: number;
+      playerId: number;
+      leagueId: number;
+    }>('SELECT id, playerId, leagueId FROM player_leagues');
+
+    // Drop and recreate without aggregate columns
+    await db.run('DROP TABLE IF EXISTS player_leagues');
+    console.log('Dropped old player_leagues table');
+
+    await db.run(`
+      CREATE TABLE player_leagues (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        playerId INTEGER NOT NULL,
+        leagueId INTEGER NOT NULL,
+        FOREIGN KEY (playerId) REFERENCES players(id),
+        FOREIGN KEY (leagueId) REFERENCES leagues(id)
+      )
+    `);
+    console.log('Created new player_leagues table without aggregate columns');
+
+    // Restore player-league relationships (wins/losses will be calculated on-demand)
+    for (const row of existingData) {
+      await db.run(
+        'INSERT INTO player_leagues (id, playerId, leagueId) VALUES (?, ?, ?)',
+        [row.id, row.playerId, row.leagueId]
+      );
+    }
+    console.log(`Restored ${existingData.length} player-league relationships`);
+
+  } catch (error) {
+    console.error('Failed to refactor player_leagues:', error);
+    throw error;
+  }
+}
+
+export async function ensureLeagueIdNullable(db: Database): Promise<void> {
+  try {
+    console.log('Ensuring matches.leagueId is nullable for standalone matches...');
+
+    // Check current table structure
+    const tableInfo = await db.all<{ name: string; notnull: number }>(
+      "PRAGMA table_info(matches)"
+    );
+
+    const leagueIdColumn = tableInfo.find(col => col.name === 'leagueId');
+    const hasIsMakeup = tableInfo.some(col => col.name === 'isMakeup');
+
+    // If leagueId has NOT NULL constraint (notnull === 1) OR isMakeup is missing, we need to recreate the table
+    if ((leagueIdColumn && leagueIdColumn.notnull === 1) || !hasIsMakeup) {
+      console.log('Found schema issues, fixing...');
+      if (leagueIdColumn && leagueIdColumn.notnull === 1) {
+        console.log('  - leagueId has NOT NULL constraint');
+      }
+      if (!hasIsMakeup) {
+        console.log('  - isMakeup column is missing');
+      }
+
+      // Get all existing matches data
+      const existingMatches = await db.all<any>('SELECT * FROM matches');
+      const existingParticipants = await db.all<any>('SELECT * FROM match_participants');
+
+      // Drop existing tables
+      await db.run('DROP TABLE IF EXISTS match_participants');
+      await db.run('DROP TABLE IF EXISTS matches');
+
+      // Recreate matches table with nullable leagueId and isMakeup column
+      await db.run(`
+        CREATE TABLE matches (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          gameType TEXT NOT NULL,
+          leagueId INTEGER,
+          seasonId INTEGER,
+          weekNumber INTEGER,
+          isMakeup INTEGER DEFAULT 0,
+          date INTEGER NOT NULL,
+          status TEXT DEFAULT 'completed',
+          gameVariant TEXT,
+          gameData TEXT,
+          createdAt INTEGER NOT NULL,
+          FOREIGN KEY (leagueId) REFERENCES leagues(id),
+          FOREIGN KEY (seasonId) REFERENCES seasons(id)
+        )
+      `);
+
+      // Recreate match_participants table
+      await db.run(`
+        CREATE TABLE match_participants (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          matchId INTEGER NOT NULL,
+          playerId INTEGER NOT NULL,
+          seatIndex INTEGER NOT NULL,
+          score INTEGER,
+          finishPosition INTEGER,
+          isWinner INTEGER DEFAULT 0,
+          FOREIGN KEY (matchId) REFERENCES matches(id) ON DELETE CASCADE,
+          FOREIGN KEY (playerId) REFERENCES players(id)
+        )
+      `);
+
+      // Restore matches with proper column mapping
+      for (const match of existingMatches) {
+        // Build insert with all available columns, defaulting missing ones
+        const insertData: any = {
+          id: match.id,
+          gameType: match.gameType,
+          leagueId: match.leagueId ?? null,
+          seasonId: match.seasonId ?? null,
+          weekNumber: match.weekNumber ?? null,
+          isMakeup: match.isMakeup ?? 0,
+          date: match.date,
+          status: match.status ?? 'completed',
+          gameVariant: match.gameVariant ?? null,
+          gameData: match.gameData ?? null,
+          createdAt: match.createdAt,
+        };
+
+        const columns = Object.keys(insertData).join(', ');
+        const placeholders = Object.keys(insertData).map(() => '?').join(', ');
+        const values = Object.values(insertData);
+
+        await db.run(
+          `INSERT INTO matches (${columns}) VALUES (${placeholders})`,
+          values
+        );
+      }
+
+      // Restore participants
+      for (const participant of existingParticipants) {
+        const columns = Object.keys(participant).filter(k => k !== 'id').join(', ');
+        const placeholders = Object.keys(participant).filter(k => k !== 'id').map(() => '?').join(', ');
+        const values = Object.keys(participant).filter(k => k !== 'id').map(k => participant[k]);
+
+        await db.run(
+          `INSERT INTO match_participants (id, ${columns}) VALUES (?, ${placeholders})`,
+          [participant.id, ...values]
+        );
+      }
+
+      console.log('Successfully fixed matches table schema');
+    } else {
+      console.log('Matches table schema is correct, skipping...');
+    }
+  } catch (error) {
+    console.error('Failed to ensure matches table schema:', error);
+    throw error;
+  }
+}

@@ -17,25 +17,23 @@ export async function getPlayerStats(
   const matches = await db.all<{
     id: number;
     date: number;
-    playerAId: number;
-    playerBId: number;
-    winnerId: number | null;
+    isWinner: number;
   }>(
-    `SELECT id, date, playerAId, playerBId, winnerId
-     FROM matches
-     WHERE leagueId = ?
-     AND (playerAId = ? OR playerBId = ?)
-     ORDER BY date DESC, createdAt DESC`,
-    [leagueId, playerId, playerId]
+    `SELECT m.id, m.date, mp.isWinner
+     FROM matches m
+     INNER JOIN match_participants mp ON mp.matchId = m.id
+     WHERE m.leagueId = ?
+       AND mp.playerId = ?
+       AND m.status = 'completed'
+     ORDER BY m.date DESC, m.createdAt DESC`,
+    [leagueId, playerId]
   );
 
   // Calculate results (W/L) from most recent to oldest
   const results: ('W' | 'L')[] = [];
-  
+
   for (const match of matches) {
-    if (match.winnerId === null) continue; // Skip matches with no winner
-    
-    if (match.winnerId === playerId) {
+    if (match.isWinner === 1) {
       results.push('W');
     } else {
       results.push('L');
@@ -50,12 +48,12 @@ export async function getPlayerStats(
   if (results.length > 0) {
     const latestResult = results[0];
     let i = 0;
-    
+
     while (i < results.length && results[i] === latestResult) {
       currentStreak++;
       i++;
     }
-    
+
     // Make it negative for loss streaks
     if (latestResult === 'L') {
       currentStreak = -currentStreak;
@@ -65,7 +63,7 @@ export async function getPlayerStats(
   // Best win streak
   let bestWinStreak = 0;
   let tempStreak = 0;
-  
+
   // Go through results in chronological order (oldest to newest)
   for (let i = results.length - 1; i >= 0; i--) {
     if (results[i] === 'W') {
@@ -89,10 +87,10 @@ export async function getPlayerStats(
 
 export function formatStreak(streak: number): string {
   if (streak === 0) return 'No streak';
-  
+
   const absStreak = Math.abs(streak);
   const type = streak > 0 ? 'W' : 'L';
-  
+
   return `${type}${absStreak}`;
 }
 

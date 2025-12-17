@@ -1,98 +1,147 @@
 import { Database } from './client';
 import { insert, remove, findById, update } from './queries';
-import { Match, MatchWithDetails } from '@/types/match';
+import { Match, MatchParticipant, MatchWithParticipants } from '@/types/match';
 import { GameData } from '@/types/games';
+import { GameType } from '@/types/league';
+import { getGameConfig } from '@/lib/games';
 
+// Type for creating a participant
+export type CreateMatchParticipant = {
+  playerId: number;
+  seatIndex: number;
+  score?: number | null;
+  finishPosition?: number | null;
+  isWinner?: boolean;
+};
+
+/**
+ * Create a match with N participants (2-4 players)
+ * leagueId is optional to support standalone matches
+ */
 export async function createMatch(
   db: Database,
   match: {
-    date: number;
-    playerAId: number;
-    playerBId: number;
-    winnerId: number | null;
-    leagueId: number;
+    gameType: GameType;
+    leagueId?: number;
     seasonId?: number;
     weekNumber?: number;
-    isMakeup?: number;
+    date: number;
+    status?: 'completed' | 'in_progress';
     gameVariant?: string;
     gameData?: GameData;
+    participants: CreateMatchParticipant[];
   }
 ): Promise<number> {
-  // Use the insert helper
+  // Validate participant count against game rules
+  const config = getGameConfig(match.gameType);
+  if (
+    match.participants.length < config.minPlayers ||
+    match.participants.length > config.maxPlayers
+  ) {
+    throw new Error(
+      `${match.gameType} requires ${config.minPlayers}-${config.maxPlayers} players`
+    );
+  }
+
+  // Validate unique players
+  const playerIds = match.participants.map((p) => p.playerId);
+  const uniquePlayerIds = new Set(playerIds);
+  if (playerIds.length !== uniquePlayerIds.size) {
+    throw new Error('All participants must be different players');
+  }
+
+  // Insert match
   const matchId = await insert(db, 'matches', {
-    date: match.date,
-    playerAId: match.playerAId,
-    playerBId: match.playerBId,
-    winnerId: match.winnerId,
-    leagueId: match.leagueId,
+    gameType: match.gameType,
+    leagueId: match.leagueId ?? null,
     seasonId: match.seasonId ?? null,
     weekNumber: match.weekNumber ?? null,
-    isMakeup: match.isMakeup ?? 0,
+    date: match.date,
+    status: match.status ?? 'completed',
     gameVariant: match.gameVariant ?? null,
     gameData: match.gameData ? JSON.stringify(match.gameData) : null,
     createdAt: Date.now(),
   });
 
-  // Update win/loss records if there's a winner
-  if (match.winnerId) {
-    const loserId = match.winnerId === match.playerAId ? match.playerBId : match.playerAId;
-
-    // Update winner's wins
-    await db.run(
-      `UPDATE player_leagues 
-       SET wins = wins + 1 
-       WHERE playerId = ? AND leagueId = ?`,
-      [match.winnerId, match.leagueId]
-    );
-
-    // Update loser's losses
-    await db.run(
-      `UPDATE player_leagues 
-       SET losses = losses + 1 
-       WHERE playerId = ? AND leagueId = ?`,
-      [loserId, match.leagueId]
-    );
+  // Insert participants
+  for (const participant of match.participants) {
+    await insert(db, 'match_participants', {
+      matchId,
+      playerId: participant.playerId,
+      seatIndex: participant.seatIndex,
+      score: participant.score ?? null,
+      finishPosition: participant.finishPosition ?? null,
+      isWinner: participant.isWinner ? 1 : 0,
+    });
   }
 
   return matchId;
 }
 
-export async function deleteMatch(db: Database, matchId: number): Promise<void> {
-  // Get match details using findById helper
-  const match = await findById<Match>(db, 'matches', matchId);
-
-  if (!match) return;
-
-  // Rollback stats if there was a winner
-  if (match.winnerId) {
-    const loserId = match.winnerId === match.playerAId ? match.playerBId : match.playerAId;
-
-    // Decrease winner's wins
-    await db.run(
-      `UPDATE player_leagues 
-       SET wins = wins - 1 
-       WHERE playerId = ? AND leagueId = ? AND wins > 0`,
-      [match.winnerId, match.leagueId]
-    );
-
-    // Decrease loser's losses
-    await db.run(
-      `UPDATE player_leagues 
-       SET losses = losses - 1 
-       WHERE playerId = ? AND leagueId = ? AND losses > 0`,
-      [loserId, match.leagueId]
-    );
+/**
+ * Update an existing match
+ */
+export async function updateMatch(
+  db: Database,
+  matchId: number,
+  updates: {
+    date?: number;
+    gameVariant?: string;
+    gameData?: GameData;
+    participants?: CreateMatchParticipant[];
+  }
+): Promise<void> {
+  const existingMatch = await findById<Match>(db, 'matches', matchId);
+  if (!existingMatch) {
+    throw new Error('Match not found');
   }
 
-  // Use the remove helper
+  // Update match fields
+  const fieldsToUpdate: Record<string, any> = {};
+  if (updates.date !== undefined) fieldsToUpdate.date = updates.date;
+  if (updates.gameVariant !== undefined) fieldsToUpdate.gameVariant = updates.gameVariant;
+  if (updates.gameData !== undefined) {
+    fieldsToUpdate.gameData = updates.gameData ? JSON.stringify(updates.gameData) : null;
+  }
+
+  if (Object.keys(fieldsToUpdate).length > 0) {
+    await update(db, 'matches', matchId, fieldsToUpdate);
+  }
+
+  // Update participants if provided
+  if (updates.participants) {
+    // Delete existing participants
+    await db.run('DELETE FROM match_participants WHERE matchId = ?', [matchId]);
+
+    // Insert new participants
+    for (const participant of updates.participants) {
+      await insert(db, 'match_participants', {
+        matchId,
+        playerId: participant.playerId,
+        seatIndex: participant.seatIndex,
+        score: participant.score ?? null,
+        finishPosition: participant.finishPosition ?? null,
+        isWinner: participant.isWinner ? 1 : 0,
+      });
+    }
+  }
+}
+
+/**
+ * Delete a match and its participants (CASCADE handles participants)
+ */
+export async function deleteMatch(db: Database, matchId: number): Promise<void> {
   await remove(db, 'matches', matchId);
 }
 
-export async function getMatchesWithDetails(
+/**
+ * Get matches with participant details
+ */
+export async function getMatchesWithParticipants(
   db: Database,
   leagueId?: number,
   seasonId?: number
-): Promise<MatchWithDetails[]> {
+): Promise<MatchWithParticipants[]> {
   const whereClauses = [];
   const params: number[] = [];
 
@@ -106,120 +155,136 @@ export async function getMatchesWithDetails(
     params.push(seasonId);
   }
 
-  const whereClause = whereClauses.length > 0
-    ? `WHERE ${whereClauses.join(' AND ')}`
-    : '';
+  const whereClause =
+    whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  const query = `
-    SELECT
-      m.*,
-      pA.firstName as playerAFirstName,
-      pA.lastName as playerALastName,
-      pB.firstName as playerBFirstName,
-      pB.lastName as playerBLastName,
-      l.name as leagueName
+  // Get matches with league name (LEFT JOIN to include standalone matches)
+  const matchQuery = `
+    SELECT m.*, l.name as leagueName
     FROM matches m
-    INNER JOIN players pA ON m.playerAId = pA.id
-    INNER JOIN players pB ON m.playerBId = pB.id
-    INNER JOIN leagues l ON m.leagueId = l.id
+    LEFT JOIN leagues l ON m.leagueId = l.id
     ${whereClause}
     ORDER BY m.date DESC, m.createdAt DESC
   `;
+  const matches = await db.all<Match & { leagueName: string | null }>(matchQuery, params);
 
-  return await db.all<MatchWithDetails>(query, params);
+  // Get participants for all matches
+  const matchesWithParticipants: MatchWithParticipants[] = [];
+
+  for (const match of matches) {
+    const participants = await db.all<
+      MatchParticipant & { firstName: string; lastName: string }
+    >(
+      `
+      SELECT
+        mp.*,
+        p.firstName,
+        p.lastName
+      FROM match_participants mp
+      INNER JOIN players p ON mp.playerId = p.id
+      WHERE mp.matchId = ?
+      ORDER BY mp.seatIndex ASC
+    `,
+      [match.id]
+    );
+
+    // Convert isWinner from integer to boolean
+    const participantsWithBoolean = participants.map((p) => ({
+      ...p,
+      isWinner: p.isWinner === 1,
+    }));
+
+    matchesWithParticipants.push({
+      ...match,
+      participants: participantsWithBoolean,
+    });
+  }
+
+  return matchesWithParticipants;
 }
 
+// Alias for backward compatibility
+export const getMatchesWithDetails = getMatchesWithParticipants;
+
+/**
+ * Get all matches for a specific player
+ */
 export async function getPlayerMatches(
   db: Database,
   playerId: number
-): Promise<MatchWithDetails[]> {
-  return await db.all<MatchWithDetails>(
-    `SELECT 
-      m.*,
-      pA.firstName as playerAFirstName,
-      pA.lastName as playerALastName,
-      pB.firstName as playerBFirstName,
-      pB.lastName as playerBLastName,
-      l.name as leagueName
+): Promise<MatchWithParticipants[]> {
+  // Get matches where player participated
+  const matches = await db.all<Match>(
+    `
+    SELECT DISTINCT m.*
     FROM matches m
-    INNER JOIN players pA ON m.playerAId = pA.id
-    INNER JOIN players pB ON m.playerBId = pB.id
-    INNER JOIN leagues l ON m.leagueId = l.id
-    WHERE m.playerAId = ? OR m.playerBId = ?
-    ORDER BY m.date DESC, m.createdAt DESC`,
-    [playerId, playerId]
+    INNER JOIN match_participants mp ON m.id = mp.matchId
+    WHERE mp.playerId = ?
+    ORDER BY m.date DESC, m.createdAt DESC
+  `,
+    [playerId]
   );
+
+  // Get participants for each match
+  const matchesWithParticipants: MatchWithParticipants[] = [];
+
+  for (const match of matches) {
+    const participants = await db.all<
+      MatchParticipant & { firstName: string; lastName: string }
+    >(
+      `
+      SELECT
+        mp.*,
+        p.firstName,
+        p.lastName
+      FROM match_participants mp
+      INNER JOIN players p ON mp.playerId = p.id
+      WHERE mp.matchId = ?
+      ORDER BY mp.seatIndex ASC
+    `,
+      [match.id]
+    );
+
+    const participantsWithBoolean = participants.map((p) => ({
+      ...p,
+      isWinner: p.isWinner === 1,
+    }));
+
+    matchesWithParticipants.push({
+      ...match,
+      participants: participantsWithBoolean,
+    });
+  }
+
+  return matchesWithParticipants;
 }
 
-export async function updateMatch(db: Database, matchId: number, updates: {date?: number, playerAId?: number, playerBId?: number, winnerId?: number | null, leagueId?: number, gameVariant?: string, gameData?: GameData}) : Promise<void> {
-  // Get the current match to update
-  const oldMatch = await findById<Match>(db, 'matches', matchId);
+/**
+ * Calculate player stats for a league (source of truth)
+ */
+export async function getPlayerStats(
+  db: Database,
+  playerId: number,
+  leagueId: number
+): Promise<{ wins: number; losses: number; gamesPlayed: number }> {
+  const result = await db.get<{
+    wins: number;
+    losses: number;
+    total: number;
+  }>(
+    `SELECT
+      SUM(CASE WHEN mp.isWinner = 1 THEN 1 ELSE 0 END) as wins,
+      SUM(CASE WHEN mp.isWinner = 0 THEN 1 ELSE 0 END) as losses,
+      COUNT(*) as total
+     FROM match_participants mp
+     INNER JOIN matches m ON mp.matchId = m.id
+     WHERE mp.playerId = ? AND m.leagueId = ? AND m.status = 'completed'`,
+    [playerId, leagueId]
+  );
 
-  if(!oldMatch) {
-    throw new Error('Match not found');
-  }
-
-  // Rollback old stats if there was a winner
-  if(oldMatch.winnerId) {
-    const oldLoserId = oldMatch.winnerId === oldMatch.playerAId ? oldMatch.playerBId : oldMatch.playerAId;
-
-    await db.run(
-      `
-        UPDATE player_leagues
-        SET wins = wins - 1
-        WHERE playerId = ? AND leagueId = ? AND wins > 0
-      `,
-      [oldMatch.winnerId, oldMatch.leagueId]
-    );
-
-    await db.run(
-      `
-        UPDATE player_leagues
-        SET losses = losses - 1
-        WHERE playerId = ? AND leagueId = ? AND losses > 0
-      `,
-      [oldLoserId, oldMatch.leagueId]
-    )
-  }
-
-  const fieldsToUpdate: Record<string, any> = {};
-  if(updates.date !== undefined) fieldsToUpdate.date = updates.date;
-  if(updates.playerAId !== undefined) fieldsToUpdate.playerAId = updates.playerAId;
-  if(updates.playerBId !== undefined) fieldsToUpdate.playerBId = updates.playerBId;
-  if(updates.winnerId !== undefined) fieldsToUpdate.winnerId = updates.winnerId;
-  if(updates.leagueId !== undefined) fieldsToUpdate.leagueId = updates.leagueId;
-  if(updates.gameVariant !== undefined) fieldsToUpdate.gameVariant = updates.gameVariant;
-  if(updates.gameData !== undefined) fieldsToUpdate.gameData = updates.gameData ? JSON.stringify(updates.gameData) : null;
-
-  await update(db, 'matches', matchId, fieldsToUpdate);
-
-  // Get the updated match
-  const newMatch = await findById<Match>(db, 'matches', matchId);
-
-  if(!newMatch) {
-    throw new Error('Match not found');
-  }
-
-  // Apply new stats if there is a winner
-  if(newMatch.winnerId){
-    const newLoserId = newMatch.winnerId === newMatch.playerAId ? newMatch.playerBId : newMatch.playerAId;
-
-    await db.run(
-      ` 
-        UPDATE player_leagues
-        SET wins = wins + 1
-        WHERE playerId = ? AND leagueId = ?
-      `,
-      [newMatch.winnerId, newMatch.leagueId]
-    );
-
-    await db.run(
-      ` 
-        UPDATE player_leagues
-        SET losses = losses + 1
-        WHERE playerId = ? AND leagueId = ?
-      `,
-      [newLoserId, newMatch.leagueId]
-    );
-  }
+  return {
+    wins: result?.wins || 0,
+    losses: result?.losses || 0,
+    gamesPlayed: result?.total || 0,
+  };
 }

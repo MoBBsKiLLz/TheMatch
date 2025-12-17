@@ -34,44 +34,34 @@ import {
   AccordionContent,
 } from '@/components/ui/accordion';
 import { ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
-import { DominosGameData, DominoGame } from '@/types/games';
+import { UnoGameData, UnoGame } from '@/types/games';
 import { ParticipantInfo } from './types';
 
-interface DominosMatchFormProps {
+interface UnoMatchFormProps {
   participants: ParticipantInfo[];
-  onDataChange: (data: DominosGameData) => void;
+  onDataChange: (data: UnoGameData) => void;
   onWinnersChange?: (winnerPlayerIds: number[]) => void;
-  initialData?: DominosGameData;
+  initialData?: UnoGameData;
 }
 
-export function DominosMatchForm({
+export function UnoMatchForm({
   participants,
   onDataChange,
   onWinnersChange,
   initialData,
-}: DominosMatchFormProps) {
-  const [games, setGames] = useState<DominoGame[]>(initialData?.games || []);
-  const [targetScore, setTargetScore] = useState(initialData?.targetScore || 150);
+}: UnoMatchFormProps) {
+  const [games, setGames] = useState<UnoGame[]>(initialData?.games || []);
+  const [targetScore, setTargetScore] = useState(initialData?.targetScore || 500);
   const [accordionValue, setAccordionValue] = useState<string[]>([]);
 
-  // Current game scores - array indexed by seatIndex
+  // Current game scores - points earned by winner from remaining cards
   const [currentGameScores, setCurrentGameScores] = useState<number[]>(
     participants.map(() => 0)
   );
 
-  // Current game pips (domino points held) - array indexed by seatIndex
-  const [currentGamePips, setCurrentGamePips] = useState<number[]>(
-    participants.map(() => 0)
-  );
-
   // Calculate running totals for each participant
-  // Formula: For each game, add (points earned - pips held)
   const finalScores = participants.map((_, index) => {
-    return games.reduce((sum, game) => {
-      const points = game.scores[index] || 0;
-      const pips = game.pips ? (game.pips[index] || 0) : 0;
-      return sum + (points - pips);
-    }, 0);
+    return games.reduce((sum, game) => sum + (game.scores[index] || 0), 0);
   });
 
   // Determine winners based on target score
@@ -85,10 +75,9 @@ export function DominosMatchForm({
     return winnersIndices;
   };
 
-  // Reset current game scores and pips when participants change
+  // Reset current game scores when participants change
   useEffect(() => {
     setCurrentGameScores(participants.map(() => 0));
-    setCurrentGamePips(participants.map(() => 0));
   }, [participants.length]);
 
   useEffect(() => {
@@ -106,18 +95,41 @@ export function DominosMatchForm({
     }
   }, [games, targetScore]);
 
-  const handleAddGame = (winnerId: number) => {
-    const newGame: DominoGame = {
-      scores: [...currentGameScores],
-      pips: [...currentGamePips],
+  const [selectedWinnerIndex, setSelectedWinnerIndex] = useState<number | null>(null);
+
+  const handleSelectWinner = (winnerIndex: number) => {
+    setSelectedWinnerIndex(winnerIndex);
+    // Reset scores when winner changes
+    setCurrentGameScores(participants.map(() => 0));
+  };
+
+  const handleAddGame = () => {
+    if (selectedWinnerIndex === null) return;
+
+    const winnerId = participants[selectedWinnerIndex].playerId;
+
+    // Calculate total points from OTHER players' cards (not the winner's)
+    const totalPointsFromOthers = currentGameScores.reduce((sum, score, idx) => {
+      if (idx !== selectedWinnerIndex) {
+        return sum + score;
+      }
+      return sum;
+    }, 0);
+
+    // In Uno, the winner gets points from other players' remaining cards
+    const newGame: UnoGame = {
+      scores: currentGameScores.map((score, idx) => {
+        // Winner gets all the points from other players, others get 0
+        return idx === selectedWinnerIndex ? totalPointsFromOthers : 0;
+      }),
       winnerId,
     };
 
     setGames([...games, newGame]);
 
-    // Reset current game
+    // Reset for next game
     setCurrentGameScores(participants.map(() => 0));
-    setCurrentGamePips(participants.map(() => 0));
+    setSelectedWinnerIndex(null);
   };
 
   const handleRemoveGame = (index: number) => {
@@ -130,11 +142,8 @@ export function DominosMatchForm({
     setCurrentGameScores(newScores);
   };
 
-  const updateCurrentGamePips = (participantIndex: number, pips: number) => {
-    const newPips = [...currentGamePips];
-    newPips[participantIndex] = pips;
-    setCurrentGamePips(newPips);
-  };
+  // Calculate total points from all players' remaining cards
+  const totalPointsThisGame = currentGameScores.reduce((sum, score) => sum + score, 0);
 
   return (
     <VStack space="lg">
@@ -160,10 +169,10 @@ export function DominosMatchForm({
               <SelectDragIndicatorWrapper>
                 <SelectDragIndicator />
               </SelectDragIndicatorWrapper>
-              <SelectItem label="150" value="150" />
               <SelectItem label="200" value="200" />
-              <SelectItem label="250" value="250" />
               <SelectItem label="300" value="300" />
+              <SelectItem label="500" value="500" />
+              <SelectItem label="1000" value="1000" />
             </SelectContent>
           </SelectPortal>
         </Select>
@@ -190,67 +199,18 @@ export function DominosMatchForm({
       <Heading size="sm">Add Game {games.length + 1}</Heading>
 
       <VStack space="md">
-        <Text size="sm" className="text-typography-600">
-          Points earned this game
-        </Text>
-        {participants.map((participant, index) => (
-          <FormControl key={`score-${participant.playerId}`}>
-            <FormControlLabel>
-              <FormControlLabelText>
-                {participant.firstName} {participant.lastName} Score
-              </FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                placeholder="Enter score"
-                value={currentGameScores[index] === 0 ? '' : String(currentGameScores[index])}
-                onChangeText={(text) => {
-                  const value = text === '' ? 0 : parseInt(text) || 0;
-                  updateCurrentGameScore(index, Math.max(0, value));
-                }}
-                keyboardType="number-pad"
-              />
-            </Input>
-          </FormControl>
-        ))}
-
-        <Divider className="my-2" />
-
-        <Text size="sm" className="text-typography-600">
-          Domino pips held (optional - deducted from score)
-        </Text>
-        {participants.map((participant, index) => (
-          <FormControl key={`pips-${participant.playerId}`}>
-            <FormControlLabel>
-              <FormControlLabelText>
-                {participant.firstName} {participant.lastName} Pips
-              </FormControlLabelText>
-            </FormControlLabel>
-            <Input variant="outline" size="lg">
-              <InputField
-                placeholder="Enter pips"
-                value={currentGamePips[index] === 0 ? '' : String(currentGamePips[index])}
-                onChangeText={(text) => {
-                  const value = text === '' ? 0 : parseInt(text) || 0;
-                  updateCurrentGamePips(index, Math.max(0, value));
-                }}
-                keyboardType="number-pad"
-              />
-            </Input>
-          </FormControl>
-        ))}
-
-        <Text size="xs" className="text-typography-500">
-          Who ran out of dominos first?
+        <Text size="sm" className="text-typography-700 font-semibold">
+          Step 1: Who went out (played their last card)?
         </Text>
         <HStack space="sm" className="flex-wrap">
-          {participants.map((participant) => (
+          {participants.map((participant, index) => (
             <Button
               key={participant.playerId}
               size="md"
-              action="positive"
+              action={selectedWinnerIndex === index ? "positive" : "secondary"}
+              variant={selectedWinnerIndex === index ? "solid" : "outline"}
               className="flex-1 min-w-[120px] mb-2"
-              onPress={() => handleAddGame(participant.playerId)}
+              onPress={() => handleSelectWinner(index)}
             >
               <ButtonText>
                 {participant.firstName} {participant.lastName}
@@ -258,6 +218,61 @@ export function DominosMatchForm({
             </Button>
           ))}
         </HStack>
+
+        {selectedWinnerIndex !== null && (
+          <>
+            <Divider className="my-2" />
+            <Text size="sm" className="text-typography-700 font-semibold">
+              Step 2: Enter card points for remaining players
+            </Text>
+            <Text size="xs" className="text-typography-500">
+              Numbers: face value | Skip/Reverse/+2: 20pts | Wild/+4: 50pts
+            </Text>
+
+            {participants.map((participant, index) => {
+              // Don't show input for the winner (they went out with 0 cards)
+              if (index === selectedWinnerIndex) return null;
+
+              return (
+                <FormControl key={`score-${participant.playerId}`}>
+                  <FormControlLabel>
+                    <FormControlLabelText>
+                      {participant.firstName} {participant.lastName}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Input variant="outline" size="lg">
+                    <InputField
+                      placeholder="Enter card points"
+                      value={currentGameScores[index] === 0 ? '' : String(currentGameScores[index])}
+                      onChangeText={(text) => {
+                        const value = text === '' ? 0 : parseInt(text) || 0;
+                        updateCurrentGameScore(index, Math.max(0, value));
+                      }}
+                      keyboardType="number-pad"
+                    />
+                  </Input>
+                </FormControl>
+              );
+            })}
+
+            {totalPointsThisGame > 0 && (
+              <Card size="sm" variant="outline" className="p-3 bg-success-50">
+                <Text size="sm" className="text-success-700 font-semibold">
+                  {participants[selectedWinnerIndex].firstName} will earn {totalPointsThisGame} points
+                </Text>
+              </Card>
+            )}
+
+            <Button
+              size="lg"
+              action="positive"
+              onPress={handleAddGame}
+              isDisabled={totalPointsThisGame === 0}
+            >
+              <ButtonText>Add Game {games.length + 1}</ButtonText>
+            </Button>
+          </>
+        )}
       </VStack>
 
       {games.length > 0 && (
@@ -288,6 +303,9 @@ export function DominosMatchForm({
                 <VStack space="md" className="pt-2">
                   {games.map((game, idx) => {
                     const winner = participants.find((p) => p.playerId === game.winnerId);
+                    const winnerIndex = participants.findIndex((p) => p.playerId === game.winnerId);
+                    const pointsEarned = game.scores[winnerIndex] || 0;
+
                     return (
                       <Card key={idx} size="sm" variant="outline" className="p-3">
                         <HStack className="justify-between items-start">
@@ -295,21 +313,11 @@ export function DominosMatchForm({
                             <Text size="sm" className="font-semibold">
                               Game {idx + 1}
                             </Text>
-                            <VStack space="xs">
-                              {participants.map((participant, pIdx) => {
-                                const points = game.scores[pIdx] || 0;
-                                const pips = game.pips ? (game.pips[pIdx] || 0) : 0;
-                                const net = points - pips;
-                                return (
-                                  <Text key={participant.playerId} size="sm">
-                                    {participant.firstName} {participant.lastName}: {points}
-                                    {pips > 0 && ` - ${pips} pips = ${net >= 0 ? '+' : ''}${net}`}
-                                  </Text>
-                                );
-                              })}
-                            </VStack>
-                            <Text size="xs" className="text-typography-500">
+                            <Text size="sm" className="text-success-600">
                               Winner: {winner ? `${winner.firstName} ${winner.lastName}` : 'Unknown'}
+                            </Text>
+                            <Text size="sm">
+                              Points earned: {pointsEarned}
                             </Text>
                           </VStack>
                           <Button

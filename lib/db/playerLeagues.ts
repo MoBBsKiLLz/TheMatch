@@ -1,6 +1,8 @@
 import { Database } from './client';
 import { insert, remove } from './queries';
 import { PlayerLeague } from '@/types/playerLeague';
+import { LeaguePlayer } from '@/types/leaguePlayer';
+import { getPlayerStats } from './matches';
 
 export async function addPlayerToLeague(
   db: Database,
@@ -17,12 +19,10 @@ export async function addPlayerToLeague(
     return; // Already enrolled
   }
 
-  // Use insert helper
+  // Insert without wins/losses (calculated on-demand)
   await insert(db, 'player_leagues', {
     playerId,
     leagueId,
-    wins: 0,
-    losses: 0,
   });
 }
 
@@ -31,7 +31,7 @@ export async function removePlayerFromLeague(
   playerId: number,
   leagueId: number
 ): Promise<void> {
-  // We need to find the record ID first since remove() expects an ID
+  // Find the record ID
   const record = await db.get<{ id: number }>(
     'SELECT id FROM player_leagues WHERE playerId = ? AND leagueId = ?',
     [playerId, leagueId]
@@ -42,21 +42,23 @@ export async function removePlayerFromLeague(
   }
 }
 
-export async function getLeaguePlayers(db: Database, leagueId: number) {
-  return await db.all<{
+/**
+ * Get all players in a league with calculated stats
+ */
+export async function getLeaguePlayers(
+  db: Database,
+  leagueId: number
+): Promise<LeaguePlayer[]> {
+  const players = await db.all<{
     id: number;
     firstName: string;
     lastName: string;
-    wins: number;
-    losses: number;
     playerLeagueId: number;
   }>(
-    `SELECT 
+    `SELECT
       p.id,
       p.firstName,
       p.lastName,
-      pl.wins,
-      pl.losses,
       pl.id as playerLeagueId
      FROM players p
      INNER JOIN player_leagues pl ON p.id = pl.playerId
@@ -64,27 +66,52 @@ export async function getLeaguePlayers(db: Database, leagueId: number) {
      ORDER BY p.lastName ASC, p.firstName ASC`,
     [leagueId]
   );
+
+  // Calculate stats for each player
+  const playersWithStats: LeaguePlayer[] = [];
+  for (const player of players) {
+    const stats = await getPlayerStats(db, player.id, leagueId);
+    playersWithStats.push({
+      ...player,
+      wins: stats.wins,
+      losses: stats.losses,
+      gamesPlayed: stats.gamesPlayed,
+    });
+  }
+
+  return playersWithStats;
 }
 
-export async function getPlayerLeagues(db: Database, playerId: number) {
-  return await db.all<{
+/**
+ * Get all leagues for a player with calculated stats
+ */
+export async function getPlayerLeagues(
+  db: Database,
+  playerId: number
+): Promise<
+  Array<{
     id: number;
     name: string;
-    season: string | null;
     location: string | null;
     color: string;
     wins: number;
     losses: number;
+    gamesPlayed: number;
+    playerLeagueId: number;
+  }>
+> {
+  const leagues = await db.all<{
+    id: number;
+    name: string;
+    location: string | null;
+    color: string;
     playerLeagueId: number;
   }>(
-    `SELECT 
+    `SELECT
       l.id,
       l.name,
-      l.season,
       l.location,
       l.color,
-      pl.wins,
-      pl.losses,
       pl.id as playerLeagueId
      FROM leagues l
      INNER JOIN player_leagues pl ON l.id = pl.leagueId
@@ -92,6 +119,20 @@ export async function getPlayerLeagues(db: Database, playerId: number) {
      ORDER BY l.name ASC`,
     [playerId]
   );
+
+  // Calculate stats for each league
+  const leaguesWithStats = [];
+  for (const league of leagues) {
+    const stats = await getPlayerStats(db, playerId, league.id);
+    leaguesWithStats.push({
+      ...league,
+      wins: stats.wins,
+      losses: stats.losses,
+      gamesPlayed: stats.gamesPlayed,
+    });
+  }
+
+  return leaguesWithStats;
 }
 
 export async function isPlayerInLeague(

@@ -214,7 +214,9 @@ export default function NewLeague() {
                         ? "Pool"
                         : gameType === "darts"
                         ? "Darts"
-                        : "Dominos"
+                        : gameType === "dominos"
+                        ? "Dominos"
+                        : "Uno"
                     }
                     className="flex-1"
                   />
@@ -229,6 +231,7 @@ export default function NewLeague() {
                     <SelectItem label="Pool" value="pool" />
                     <SelectItem label="Darts" value="darts" />
                     <SelectItem label="Dominos" value="dominos" />
+                    <SelectItem label="Uno" value="uno" />
                   </SelectContent>
                 </SelectPortal>
               </Select>

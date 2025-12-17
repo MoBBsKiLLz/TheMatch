@@ -4,27 +4,33 @@ import { DartsX01GameData, DartsCricketGameData } from '@/types/games';
 export const dartsConfig: GameConfig = {
   type: 'darts',
   name: 'Darts',
+  minPlayers: 2,        // Can be 1v1
+  maxPlayers: 4,        // Or up to 4 players in a match
   variants: ['901', '701', '501', '401', '301', 'cricket'],
 
   validateMatchData: (data: any): boolean => {
     if (!data || typeof data !== 'object') return false;
 
     // Check if X01 variant
-    if ('playerAScore' in data && 'playerBScore' in data) {
+    if ('scores' in data && 'startingScore' in data) {
       const x01 = data as DartsX01GameData;
       return (
-        typeof x01.playerAScore === 'number' &&
-        typeof x01.playerBScore === 'number' &&
+        Array.isArray(x01.scores) &&
+        x01.scores.length >= 2 &&
+        x01.scores.length <= 4 &&
+        x01.scores.every((s) => typeof s === 'number') &&
         typeof x01.startingScore === 'number'
       );
     }
 
     // Check if Cricket variant
-    if ('playerAPoints' in data && 'playerBPoints' in data) {
+    if ('points' in data && 'cricketType' in data) {
       const cricket = data as DartsCricketGameData;
       return (
-        typeof cricket.playerAPoints === 'number' &&
-        typeof cricket.playerBPoints === 'number' &&
+        Array.isArray(cricket.points) &&
+        cricket.points.length >= 2 &&
+        cricket.points.length <= 4 &&
+        cricket.points.every((p) => typeof p === 'number') &&
         ['standard', 'cut-throat'].includes(cricket.cricketType)
       );
     }
@@ -32,39 +38,35 @@ export const dartsConfig: GameConfig = {
     return false;
   },
 
-  determineWinner: (gameData, playerAId, playerBId) => {
-    // X01 variant
-    if ('playerAScore' in gameData) {
-      const data = gameData as DartsX01GameData;
-      if (data.playerAScore === 0) return playerAId;
-      if (data.playerBScore === 0) return playerBId;
-      return null;
-    }
-
-    // Cricket variant
-    if ('playerAPoints' in gameData) {
-      const data = gameData as DartsCricketGameData;
-      if (data.cricketType === 'standard') {
-        return data.playerAPoints > data.playerBPoints ? playerAId : playerBId;
-      } else {
-        // Cut-throat: lowest points wins
-        return data.playerAPoints < data.playerBPoints ? playerAId : playerBId;
-      }
-    }
-
-    return null;
+  validateParticipants: (participants) => {
+    // 2-4 players, must have at least 1 winner
+    return (
+      participants.length >= 2 &&
+      participants.length <= 4 &&
+      participants.filter((p) => p.isWinner).length >= 1
+    );
   },
 
-  getMatchDisplayText: (gameData) => {
-    if ('playerAScore' in gameData) {
-      const data = gameData as DartsX01GameData;
-      return `${data.playerAScore} - ${data.playerBScore}`;
+  determineWinners: (participants) => {
+    // For darts, winner is determined by score
+    // For now, just return flagged winners
+    return participants.filter((p) => p.isWinner).map((p) => p.playerId);
+  },
+
+  getMatchDisplayText: (participants) => {
+    const winner = participants.find((p) => p.isWinner);
+    if (participants.length === 2) {
+      const loser = participants.find((p) => !p.isWinner);
+      if (winner && loser) {
+        return `${winner.firstName} ${winner.lastName} defeated ${loser.firstName} ${loser.lastName}`;
+      }
+    } else {
+      // Multi-player
+      if (winner) {
+        return `${winner.firstName} ${winner.lastName} won (${participants.length} players)`;
+      }
     }
-    if ('playerAPoints' in gameData) {
-      const data = gameData as DartsCricketGameData;
-      return `${data.playerAPoints} pts - ${data.playerBPoints} pts (${data.cricketType})`;
-    }
-    return '';
+    return 'Darts match';
   },
 
   getVariantDisplayName: (variant) => {

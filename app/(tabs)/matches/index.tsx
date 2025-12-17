@@ -56,19 +56,53 @@ export default function Matches() {
       );
       setLeagues(leagueResults);
 
-      // Fetch seasons (filtered by league if selected)
-      const leagueId = selectedLeague === "all" ? undefined : Number(selectedLeague);
-      const seasonQuery = leagueId
-        ? "SELECT * FROM seasons WHERE leagueId = ? ORDER BY startDate DESC"
-        : "SELECT * FROM seasons ORDER BY startDate DESC";
-      const seasonParams = leagueId ? [leagueId] : [];
-      const seasonResults = await db.all<Season>(seasonQuery, seasonParams);
-      setSeasons(seasonResults);
+      // Handle standalone matches filter
+      if (selectedLeague === "standalone") {
+        // Fetch only standalone matches (leagueId IS NULL)
+        const matchResults = await db.all<MatchWithDetails>(
+          `SELECT m.*, NULL as leagueName
+           FROM matches m
+           WHERE m.leagueId IS NULL
+           ORDER BY m.date DESC, m.createdAt DESC`
+        );
 
-      // Fetch matches (filtered by league and/or season)
-      const seasonId = selectedSeason === "all" ? undefined : Number(selectedSeason);
-      const matchResults = await getMatchesWithDetails(db, leagueId, seasonId);
-      setMatches(matchResults);
+        // Get participants for each match
+        const matchesWithParticipants: MatchWithDetails[] = [];
+        for (const match of matchResults) {
+          const participants = await db.all<any>(
+            `SELECT mp.*, p.firstName, p.lastName
+             FROM match_participants mp
+             INNER JOIN players p ON mp.playerId = p.id
+             WHERE mp.matchId = ?
+             ORDER BY mp.seatIndex ASC`,
+            [match.id]
+          );
+          matchesWithParticipants.push({
+            ...match,
+            participants: participants.map((p: any) => ({
+              ...p,
+              isWinner: p.isWinner === 1,
+            })),
+          });
+        }
+
+        setMatches(matchesWithParticipants);
+        setSeasons([]); // No seasons for standalone matches
+      } else {
+        // Fetch seasons (filtered by league if selected)
+        const leagueId = selectedLeague === "all" ? undefined : Number(selectedLeague);
+        const seasonQuery = leagueId
+          ? "SELECT * FROM seasons WHERE leagueId = ? ORDER BY startDate DESC"
+          : "SELECT * FROM seasons ORDER BY startDate DESC";
+        const seasonParams = leagueId ? [leagueId] : [];
+        const seasonResults = await db.all<Season>(seasonQuery, seasonParams);
+        setSeasons(seasonResults);
+
+        // Fetch matches (filtered by league and/or season)
+        const seasonId = selectedSeason === "all" ? undefined : Number(selectedSeason);
+        const matchResults = await getMatchesWithDetails(db, leagueId, seasonId);
+        setMatches(matchResults);
+      }
     } catch (error) {
       console.error("Failed to fetch matches: ", error);
     } finally {
@@ -130,16 +164,18 @@ export default function Matches() {
   };
 
   const getMatchResult = (match: MatchWithDetails) => {
-    if (!match.winnerId) {
+    const winners = match.participants.filter((p) => p.isWinner);
+
+    if (winners.length === 0) {
       return "No winner recorded";
     }
 
-    const winner =
-      match.winnerId === match.playerAId
-        ? `${match.playerAFirstName} ${match.playerALastName}`
-        : `${match.playerBFirstName} ${match.playerBLastName}`;
+    if (winners.length === 1) {
+      return `${winners[0].firstName} ${winners[0].lastName} won`;
+    }
 
-    return `${winner} won`;
+    // Multiple winners (e.g., team game)
+    return `${winners.map((w) => `${w.firstName} ${w.lastName}`).join(", ")} won`;
   };
 
   const handleViewMatch = (matchId: number) => {
@@ -185,7 +221,9 @@ export default function Matches() {
                     placeholder="Filter by league"
                     value={
                       selectedLeague === "all"
-                        ? "All Leagues"
+                        ? "All Matches"
+                        : selectedLeague === "standalone"
+                        ? "Standalone Matches"
                         : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
                     }
                   />
@@ -197,7 +235,8 @@ export default function Matches() {
                     <SelectDragIndicatorWrapper>
                       <SelectDragIndicator />
                     </SelectDragIndicatorWrapper>
-                    <SelectItem label="All Leagues" value="all" />
+                    <SelectItem label="All Matches" value="all" />
+                    <SelectItem label="Standalone Matches" value="standalone" />
                     {leagues.map((league) => (
                       <SelectItem
                         key={league.id}
@@ -254,6 +293,8 @@ export default function Matches() {
                 <Text size="lg" className="text-typography-500 text-center">
                   {selectedLeague === "all" && selectedSeason === "all"
                     ? "No matches recorded yet."
+                    : selectedLeague === "standalone"
+                    ? "No standalone matches recorded yet."
                     : selectedSeason !== "all"
                     ? "No matches in this season."
                     : "No matches in this league."}
@@ -273,43 +314,45 @@ export default function Matches() {
                   className="p-4 border border-neutral-400"
                 >
                   <VStack space="md">
-                    {/* League Badge */}
-                    <Badge size="sm" variant="solid" action="info">
-                      <BadgeText>{match.leagueName}</BadgeText>
-                    </Badge>
+                    {/* League and Status Badges */}
+                    <HStack space="sm" className="flex-wrap">
+                      <Badge size="sm" variant="solid" action={match.leagueName ? "info" : "muted"}>
+                        <BadgeText>{match.leagueName || "Standalone"}</BadgeText>
+                      </Badge>
+                      <Badge size="sm" variant="solid" action="info">
+                        <BadgeText>{match.gameType}</BadgeText>
+                      </Badge>
+                      {match.status === 'in_progress' && (
+                        <Badge size="sm" variant="solid" action="warning">
+                          <BadgeText>In Progress</BadgeText>
+                        </Badge>
+                      )}
+                    </HStack>
 
-                    {/* Players */}
+                    {/* Participants */}
                     <VStack space="xs">
-                      <HStack className="justify-between items-center">
-                        <Text
-                          className={`text-typography-900 font-medium ${
-                            match.winnerId === match.playerAId
-                              ? "text-success-600"
-                              : ""
-                          }`}
-                        >
-                          {match.playerAFirstName} {match.playerALastName}
-                          {match.winnerId === match.playerAId && " ✓"}
-                        </Text>
-                      </HStack>
-                      <Text
-                        size="sm"
-                        className="text-typography-500 text-center"
-                      >
-                        vs
-                      </Text>
-                      <HStack className="justify-between items-center">
-                        <Text
-                          className={`text-typography-900 font-medium ${
-                            match.winnerId === match.playerBId
-                              ? "text-success-600"
-                              : ""
-                          }`}
-                        >
-                          {match.playerBFirstName} {match.playerBLastName}
-                          {match.winnerId === match.playerBId && " ✓"}
-                        </Text>
-                      </HStack>
+                      {match.participants.map((participant, index) => (
+                        <React.Fragment key={participant.id}>
+                          {index > 0 && (
+                            <Text
+                              size="sm"
+                              className="text-typography-500 text-center"
+                            >
+                              vs
+                            </Text>
+                          )}
+                          <HStack className="justify-between items-center">
+                            <Text
+                              className={`text-typography-900 font-medium ${
+                                participant.isWinner ? "text-success-600" : ""
+                              }`}
+                            >
+                              {participant.firstName} {participant.lastName}
+                              {participant.isWinner && " ✓"}
+                            </Text>
+                          </HStack>
+                        </React.Fragment>
+                      ))}
                     </VStack>
 
                     {/* Match Info */}
