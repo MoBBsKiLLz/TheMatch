@@ -239,8 +239,8 @@ export default function ContinueMatch() {
                 onPress={() => handleSave('completed')}
                 isDisabled={isSaving}
               >
-                <ButtonText>
-                  {isSaving ? "Saving..." : "Save & Complete"}
+                <ButtonText numberOfLines={1}>
+                  {isSaving ? "Saving..." : "Complete Match"}
                 </ButtonText>
               </Button>
             </HStack>
@@ -252,8 +252,8 @@ export default function ContinueMatch() {
               onPress={() => handleSave('in_progress')}
               isDisabled={isSaving}
             >
-              <ButtonText>
-                Save Progress (Continue Later)
+              <ButtonText numberOfLines={1}>
+                Save In Progress
               </ButtonText>
             </Button>
           </VStack>

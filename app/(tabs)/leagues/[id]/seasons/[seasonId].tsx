@@ -553,7 +553,7 @@ export default function SeasonDetail() {
                 variant="link"
                 onPress={() => router.push(`/leagues/${id}` as Href)}
               >
-                <ButtonText>← Back to {league.name}</ButtonText>
+                <ButtonText numberOfLines={1}>← Back to {league.name}</ButtonText>
               </Button>
               <Button
                 size="sm"
@@ -755,7 +755,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.playerId, false)}
                                   >
-                                    <ButtonText className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
+                                    <ButtonText numberOfLines={1} className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
                                   </Button>
                                   <Button
                                     size="xs"
@@ -763,7 +763,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.opponentId, false)}
                                   >
-                                    <ButtonText className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
+                                    <ButtonText numberOfLines={1} className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
                                   </Button>
                                 </HStack>
                               </VStack>
@@ -829,7 +829,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.playerId, true)}
                                   >
-                                    <ButtonText className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
+                                    <ButtonText numberOfLines={1} className="text-xs">{getPlayerButtonName(match.playerName, match.opponentName)} Wins</ButtonText>
                                   </Button>
                                   <Button
                                     size="xs"
@@ -837,7 +837,7 @@ export default function SeasonDetail() {
                                     className="flex-1"
                                     onPress={() => handleQuickRecordWin(match, match.opponentId, true)}
                                   >
-                                    <ButtonText className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
+                                    <ButtonText numberOfLines={1} className="text-xs">{getPlayerButtonName(match.opponentName, match.playerName)} Wins</ButtonText>
                                   </Button>
                                 </HStack>
                               </VStack>

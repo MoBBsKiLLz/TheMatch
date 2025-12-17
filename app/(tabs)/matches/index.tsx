@@ -208,45 +208,44 @@ export default function Matches() {
           </Heading>
 
           {/* Filters */}
-          {leagues.length > 0 && (
-            <VStack space="md">
-              {/* League Filter */}
-              <Select
-                selectedValue={selectedLeague}
-                onValueChange={handleLeagueChange}
-              >
-                <SelectTrigger variant="outline" size="lg">
-                  <SelectInput
-                    className="flex-1"
-                    placeholder="Filter by league"
-                    value={
-                      selectedLeague === "all"
-                        ? "All Matches"
-                        : selectedLeague === "standalone"
-                        ? "Standalone Matches"
-                        : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
-                    }
-                  />
-                  <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
-                </SelectTrigger>
-                <SelectPortal>
-                  <SelectBackdrop />
-                  <SelectContent>
-                    <SelectDragIndicatorWrapper>
-                      <SelectDragIndicator />
-                    </SelectDragIndicatorWrapper>
-                    <SelectItem label="All Matches" value="all" />
-                    <SelectItem label="Standalone Matches" value="standalone" />
-                    {leagues.map((league) => (
-                      <SelectItem
-                        key={league.id}
-                        label={league.name}
-                        value={String(league.id)}
-                      />
-                    ))}
-                  </SelectContent>
-                </SelectPortal>
-              </Select>
+          <VStack space="md">
+            {/* League Filter - Always show (includes standalone option) */}
+            <Select
+              selectedValue={selectedLeague}
+              onValueChange={handleLeagueChange}
+            >
+              <SelectTrigger variant="outline" size="lg">
+                <SelectInput
+                  className="flex-1"
+                  placeholder="Filter by league"
+                  value={
+                    selectedLeague === "all"
+                      ? "All Matches"
+                      : selectedLeague === "standalone"
+                      ? "Standalone Matches"
+                      : leagues.find((l) => String(l.id) === selectedLeague)?.name || ""
+                  }
+                />
+                <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+              </SelectTrigger>
+              <SelectPortal>
+                <SelectBackdrop />
+                <SelectContent>
+                  <SelectDragIndicatorWrapper>
+                    <SelectDragIndicator />
+                  </SelectDragIndicatorWrapper>
+                  <SelectItem label="All Matches" value="all" />
+                  <SelectItem label="Standalone Matches" value="standalone" />
+                  {leagues.map((league) => (
+                    <SelectItem
+                      key={league.id}
+                      label={league.name}
+                      value={String(league.id)}
+                    />
+                  ))}
+                </SelectContent>
+              </SelectPortal>
+            </Select>
 
               {/* Season Filter */}
               {seasons.length > 0 && (
@@ -284,8 +283,7 @@ export default function Matches() {
                   </SelectPortal>
                 </Select>
               )}
-            </VStack>
-          )}
+          </VStack>
 
           {matches.length === 0 ? (
             <Center className="mt-20">

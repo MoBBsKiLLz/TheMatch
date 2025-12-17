@@ -414,30 +414,8 @@ export default function NewMatch() {
     );
   }
 
-  if (leagues.length === 0) {
-    return (
-      <SafeAreaView className="flex-1 bg-background-0">
-        <VStack className="flex-1 p-6" space="2xl">
-          <Heading size="3xl" className="text-typography-900">
-            Record Match
-          </Heading>
-          <Center className="flex-1">
-            <VStack space="md" className="items-center">
-              <Text className="text-typography-500 text-center">
-                No leagues available.
-              </Text>
-              <Text className="text-typography-400 text-center">
-                Create a league first.
-              </Text>
-              <Button onPress={() => router.back()}>
-                <ButtonText>Go Back</ButtonText>
-              </Button>
-            </VStack>
-          </Center>
-        </VStack>
-      </SafeAreaView>
-    );
-  }
+  // Removed: No longer blocking standalone matches when no leagues exist
+  // Users can record standalone matches without any leagues
 
   // Get game config from either league or standalone game type
   const gameConfig = isStandalone
@@ -784,8 +762,8 @@ export default function NewMatch() {
                 onPress={() => handleSubmit('completed')}
                 isDisabled={isSubmitting || leaguePlayers.length < 2}
               >
-                <ButtonText>
-                  {isSubmitting ? "Saving..." : "Save & Complete"}
+                <ButtonText numberOfLines={1}>
+                  {isSubmitting ? "Saving..." : "Complete Match"}
                 </ButtonText>
               </Button>
             </HStack>
@@ -800,8 +778,8 @@ export default function NewMatch() {
                 onPress={() => handleSubmit('in_progress')}
                 isDisabled={isSubmitting || leaguePlayers.length < 2}
               >
-                <ButtonText>
-                  Save as In Progress (Continue Later)
+                <ButtonText numberOfLines={1}>
+                  Save In Progress
                 </ButtonText>
               </Button>
             ) : null}

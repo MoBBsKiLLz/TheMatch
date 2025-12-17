@@ -252,7 +252,7 @@ export function DominosMatchForm({
               className="flex-1 min-w-[120px] mb-2"
               onPress={() => handleAddGame(participant.playerId)}
             >
-              <ButtonText>
+              <ButtonText numberOfLines={1} className="text-center">
                 {participant.firstName} {participant.lastName}
               </ButtonText>
             </Button>
