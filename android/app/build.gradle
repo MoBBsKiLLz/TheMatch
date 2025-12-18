@@ -131,10 +131,10 @@ android {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
 
-    // Compile options: target Java 21 for build toolchain
+    // Compile options: target Java 17 for build toolchain
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_21
-        targetCompatibility JavaVersion.VERSION_21
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
@@ -158,16 +158,16 @@ android {
     }
 }
 
-// Ensure Kotlin compilation targets JVM 21
+// Ensure Kotlin compilation targets JVM 17
 tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
     kotlinOptions {
-        jvmTarget = "21"
+        jvmTarget = "17"
     }
 }
 
-// Use Kotlin JVM toolchain to align Kotlin compilation with JDK 21
+// Use Kotlin JVM toolchain to align Kotlin compilation with JDK 17
 kotlin {
-    jvmToolchain(21)
+    jvmToolchain(17)
 }
 
 dependencies {
