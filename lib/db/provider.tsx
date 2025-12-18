@@ -16,7 +16,8 @@ import {
   addGameDataToMatches,
   refactorMatchesForMultiPlayer,
   refactorPlayerLeagues,
-  ensureLeagueIdNullable
+  ensureLeagueIdNullable,
+  createCustomGameConfigsTable
 } from "./migrations";
 
 type DatabaseContextType = {
@@ -54,6 +55,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         // Ensure standalone matches are supported
         await ensureLeagueIdNullable(dbInstance);
+
+        // Add custom game configurations support
+        await createCustomGameConfigsTable(dbInstance);
 
         setDb(dbInstance);
       } catch (error) {

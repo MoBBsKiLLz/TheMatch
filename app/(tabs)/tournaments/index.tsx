@@ -21,7 +21,8 @@ import {
   SelectDragIndicator,
   SelectItem,
 } from "@/components/ui/select";
-import { ChevronDownIcon, Trophy } from "lucide-react-native";
+import { ChevronDownIcon } from "lucide-react-native";
+import { Trophy } from "lucide-react-native";
 import { Icon } from "@/components/ui/icon";
 import { router, useFocusEffect, Href } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
@@ -149,12 +150,9 @@ export default function TournamentsIndex() {
       <ScrollView className="flex-1" contentContainerClassName="p-6">
         <VStack space="2xl">
           {/* Header */}
-          <HStack className="items-center" space="sm">
-            <Icon as={Trophy} size="xl" className="text-primary-500" />
-            <Heading size="3xl" className="text-typography-900">
-              Tournaments
-            </Heading>
-          </HStack>
+          <Heading size="3xl" className="text-typography-900">
+            Tournaments
+          </Heading>
 
           {/* Filters */}
           <HStack space="md">

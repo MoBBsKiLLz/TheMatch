@@ -1,6 +1,6 @@
 export type LeagueFormat = 'round-robin' | 'swiss' | 'ladder' | 'custom';
 
-export type GameType = 'pool' | 'darts' | 'dominos' | 'uno';
+export type GameType = 'pool' | 'darts' | 'dominos' | 'uno' | 'custom';
 
 export type League = {
   id: number;
@@ -10,5 +10,6 @@ export type League = {
   format: LeagueFormat;
   defaultDuration: number; // Default weeks for new seasons
   gameType: GameType;
+  customGameConfigId?: number; // Only present when gameType is 'custom'
   createdAt: number;
 };

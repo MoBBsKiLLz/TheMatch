@@ -100,6 +100,7 @@ export default function NewMatch() {
   const [matchDate, setMatchDate] = useState(Date.now());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [totalPlayers, setTotalPlayers] = useState(0);
   const [errors, setErrors] = useState<{
     league?: string;
     participants?: string;
@@ -112,7 +113,7 @@ export default function NewMatch() {
   const [gameVariant, setGameVariant] = useState<string>('');
   const [gameData, setGameData] = useState<GameData | null>(null);
 
-  // Load leagues
+  // Load leagues and check for players
   useEffect(() => {
     async function loadLeagues() {
       if (!db) return;
@@ -122,6 +123,12 @@ export default function NewMatch() {
           "SELECT * FROM leagues ORDER BY name ASC"
         );
         setLeagues(results);
+
+        // Check total number of players
+        const playerCountResult = await db.get<{ count: number }>(
+          "SELECT COUNT(*) as count FROM players"
+        );
+        setTotalPlayers(playerCountResult?.count || 0);
       } catch (error) {
         console.error("Failed to load leagues:", error);
         setErrors({ general: "Failed to load leagues" });
@@ -414,8 +421,42 @@ export default function NewMatch() {
     );
   }
 
-  // Removed: No longer blocking standalone matches when no leagues exist
-  // Users can record standalone matches without any leagues
+  // Enforce that players must be created before matches
+  if (totalPlayers === 0) {
+    return (
+      <SafeAreaView className="flex-1 bg-background-0">
+        <VStack className="flex-1 p-6" space="2xl">
+          <Heading size="3xl" className="text-typography-900">
+            Record Match
+          </Heading>
+          <Center className="flex-1">
+            <VStack space="md" className="items-center max-w-md">
+              <Text className="text-typography-500 text-center text-lg">
+                Create players first
+              </Text>
+              <Text className="text-typography-400 text-center">
+                You need to add players before you can record a match. Tap the Players tab below to get started.
+              </Text>
+              <Button
+                size="lg"
+                action="primary"
+                onPress={() => router.push("/(tabs)/players")}
+              >
+                <ButtonText>Go to Players</ButtonText>
+              </Button>
+              <Button
+                size="md"
+                variant="link"
+                onPress={() => router.back()}
+              >
+                <ButtonText>Go Back</ButtonText>
+              </Button>
+            </VStack>
+          </Center>
+        </VStack>
+      </SafeAreaView>
+    );
+  }
 
   // Get game config from either league or standalone game type
   const gameConfig = isStandalone

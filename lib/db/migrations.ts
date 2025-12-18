@@ -364,3 +364,49 @@ export async function ensureLeagueIdNullable(db: Database): Promise<void> {
     throw error;
   }
 }
+
+export async function createCustomGameConfigsTable(db: Database): Promise<void> {
+  try {
+    // Check if table already exists
+    const tableExists = await db.get<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='custom_game_configs'`
+    );
+
+    if (!tableExists) {
+      await db.run(`
+        CREATE TABLE custom_game_configs (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          scoringMethod TEXT NOT NULL CHECK (scoringMethod IN ('points', 'games_won', 'rounds')),
+          winCondition TEXT NOT NULL CHECK (winCondition IN ('target_score', 'best_of_games', 'most_points')),
+          targetValue INTEGER NOT NULL,
+          minPlayers INTEGER NOT NULL CHECK (minPlayers >= 2 AND minPlayers <= 10),
+          maxPlayers INTEGER NOT NULL CHECK (maxPlayers >= 2 AND maxPlayers <= 10),
+          trackIndividualGames INTEGER NOT NULL DEFAULT 0,
+          allowNegativeScores INTEGER NOT NULL DEFAULT 0,
+          pointsPerWin INTEGER,
+          createdAt INTEGER NOT NULL
+        )
+      `);
+      console.log('Created custom_game_configs table');
+    } else {
+      console.log('custom_game_configs table already exists');
+    }
+
+    // Add customGameConfigId column to leagues table
+    const leagueTableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(leagues)"
+    );
+
+    const hasCustomGameConfigId = leagueTableInfo.some(col => col.name === 'customGameConfigId');
+
+    if (!hasCustomGameConfigId) {
+      await db.run('ALTER TABLE leagues ADD COLUMN customGameConfigId INTEGER');
+      console.log('Added customGameConfigId column to leagues table');
+    }
+  } catch (error) {
+    console.error('Failed to create custom_game_configs table:', error);
+    throw error;
+  }
+}

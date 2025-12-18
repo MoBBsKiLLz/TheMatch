@@ -54,5 +54,8 @@ export type UnoGameData = {
   targetScore: number;
 };
 
+// Import custom game types
+import { CustomGameData } from './customGame';
+
 // Union type for all game data
-export type GameData = PoolGameData | DartsGameData | DominosGameData | UnoGameData;
+export type GameData = PoolGameData | DartsGameData | DominosGameData | UnoGameData | CustomGameData;
