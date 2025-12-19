@@ -1,4 +1,5 @@
 import { Database } from './client';
+import { logger } from "@/lib/utils/logger";
 import { insert, remove, findById, update } from './queries';
 import { Match, MatchParticipant, MatchWithParticipants } from '@/types/match';
 import { GameData } from '@/types/games';
@@ -50,30 +51,34 @@ export async function createMatch(
     throw new Error('All participants must be different players');
   }
 
-  // Insert match
-  const matchId = await insert(db, 'matches', {
-    gameType: match.gameType,
-    leagueId: match.leagueId ?? null,
-    seasonId: match.seasonId ?? null,
-    weekNumber: match.weekNumber ?? null,
-    date: match.date,
-    status: match.status ?? 'completed',
-    gameVariant: match.gameVariant ?? null,
-    gameData: match.gameData ? JSON.stringify(match.gameData) : null,
-    createdAt: Date.now(),
-  });
-
-  // Insert participants
-  for (const participant of match.participants) {
-    await insert(db, 'match_participants', {
-      matchId,
-      playerId: participant.playerId,
-      seatIndex: participant.seatIndex,
-      score: participant.score ?? null,
-      finishPosition: participant.finishPosition ?? null,
-      isWinner: participant.isWinner ? 1 : 0,
+  // Use transaction to ensure match and participants are inserted atomically
+  let matchId: number = 0;
+  await db.transaction(async (txDb) => {
+    // Insert match
+    matchId = await insert(txDb, 'matches', {
+      gameType: match.gameType,
+      leagueId: match.leagueId ?? null,
+      seasonId: match.seasonId ?? null,
+      weekNumber: match.weekNumber ?? null,
+      date: match.date,
+      status: match.status ?? 'completed',
+      gameVariant: match.gameVariant ?? null,
+      gameData: match.gameData ? JSON.stringify(match.gameData) : null,
+      createdAt: Date.now(),
     });
-  }
+
+    // Insert participants
+    for (const participant of match.participants) {
+      await insert(txDb, 'match_participants', {
+        matchId,
+        playerId: participant.playerId,
+        seatIndex: participant.seatIndex,
+        score: participant.score ?? null,
+        finishPosition: participant.finishPosition ?? null,
+        isWinner: participant.isWinner ? 1 : 0,
+      });
+    }
+  });
 
   return matchId;
 }
@@ -96,35 +101,38 @@ export async function updateMatch(
     throw new Error('Match not found');
   }
 
-  // Update match fields
-  const fieldsToUpdate: Record<string, any> = {};
-  if (updates.date !== undefined) fieldsToUpdate.date = updates.date;
-  if (updates.gameVariant !== undefined) fieldsToUpdate.gameVariant = updates.gameVariant;
-  if (updates.gameData !== undefined) {
-    fieldsToUpdate.gameData = updates.gameData ? JSON.stringify(updates.gameData) : null;
-  }
-
-  if (Object.keys(fieldsToUpdate).length > 0) {
-    await update(db, 'matches', matchId, fieldsToUpdate);
-  }
-
-  // Update participants if provided
-  if (updates.participants) {
-    // Delete existing participants
-    await db.run('DELETE FROM match_participants WHERE matchId = ?', [matchId]);
-
-    // Insert new participants
-    for (const participant of updates.participants) {
-      await insert(db, 'match_participants', {
-        matchId,
-        playerId: participant.playerId,
-        seatIndex: participant.seatIndex,
-        score: participant.score ?? null,
-        finishPosition: participant.finishPosition ?? null,
-        isWinner: participant.isWinner ? 1 : 0,
-      });
+  // Use transaction to ensure match and participants are updated atomically
+  await db.transaction(async (txDb) => {
+    // Update match fields
+    const fieldsToUpdate: Record<string, any> = {};
+    if (updates.date !== undefined) fieldsToUpdate.date = updates.date;
+    if (updates.gameVariant !== undefined) fieldsToUpdate.gameVariant = updates.gameVariant;
+    if (updates.gameData !== undefined) {
+      fieldsToUpdate.gameData = updates.gameData ? JSON.stringify(updates.gameData) : null;
     }
-  }
+
+    if (Object.keys(fieldsToUpdate).length > 0) {
+      await update(txDb, 'matches', matchId, fieldsToUpdate);
+    }
+
+    // Update participants if provided
+    if (updates.participants) {
+      // Delete existing participants
+      await txDb.run('DELETE FROM match_participants WHERE matchId = ?', [matchId]);
+
+      // Insert new participants
+      for (const participant of updates.participants) {
+        await insert(txDb, 'match_participants', {
+          matchId,
+          playerId: participant.playerId,
+          seatIndex: participant.seatIndex,
+          score: participant.score ?? null,
+          finishPosition: participant.finishPosition ?? null,
+          isWinner: participant.isWinner ? 1 : 0,
+        });
+      }
+    }
+  });
 }
 
 /**
@@ -158,15 +166,16 @@ export async function getMatchesWithParticipants(
   const whereClause =
     whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-  // Get matches with league name (LEFT JOIN to include standalone matches)
+  // Get matches with league name and custom game name (LEFT JOIN to include standalone matches)
   const matchQuery = `
-    SELECT m.*, l.name as leagueName
+    SELECT m.*, l.name as leagueName, cgc.name as customGameName
     FROM matches m
     LEFT JOIN leagues l ON m.leagueId = l.id
+    LEFT JOIN custom_game_configs cgc ON l.customGameConfigId = cgc.id
     ${whereClause}
     ORDER BY m.date DESC, m.createdAt DESC
   `;
-  const matches = await db.all<Match & { leagueName: string | null }>(matchQuery, params);
+  const matches = await db.all<Match & { leagueName: string | null; customGameName: string | null }>(matchQuery, params);
 
   // Get participants for all matches
   const matchesWithParticipants: MatchWithParticipants[] = [];
@@ -194,9 +203,27 @@ export async function getMatchesWithParticipants(
       isWinner: p.isWinner === 1,
     }));
 
+    // For standalone custom game matches, fetch custom game name from gameData
+    let customGameName = match.customGameName;
+    if (match.gameType === 'custom' && !customGameName && match.gameData) {
+      try {
+        const parsedGameData = JSON.parse(match.gameData);
+        if (parsedGameData.configId) {
+          const customGameConfig = await db.get<{ name: string }>(
+            'SELECT name FROM custom_game_configs WHERE id = ?',
+            [parsedGameData.configId]
+          );
+          customGameName = customGameConfig?.name || null;
+        }
+      } catch (error) {
+        logger.error('Failed to parse gameData for custom game:', error);
+      }
+    }
+
     matchesWithParticipants.push({
       ...match,
       participants: participantsWithBoolean,
+      customGameName,
     });
   }
 

@@ -60,7 +60,7 @@ export default function Matches() {
       if (selectedLeague === "standalone") {
         // Fetch only standalone matches (leagueId IS NULL)
         const matchResults = await db.all<MatchWithDetails>(
-          `SELECT m.*, NULL as leagueName
+          `SELECT m.*, NULL as leagueName, NULL as customGameName
            FROM matches m
            WHERE m.leagueId IS NULL
            ORDER BY m.date DESC, m.createdAt DESC`
@@ -77,12 +77,32 @@ export default function Matches() {
              ORDER BY mp.seatIndex ASC`,
             [match.id]
           );
+
+          // For custom games, fetch custom game name from gameData
+          let customGameName: string | undefined = match.customGameName ?? undefined;
+          if (match.gameType === 'custom' && match.gameData) {
+            try {
+              const parsedGameData = JSON.parse(match.gameData);
+              if (parsedGameData.configId) {
+                const customGameConfig = await db.get<{ name: string }>(
+                  'SELECT name FROM custom_game_configs WHERE id = ?',
+                  [parsedGameData.configId]
+                );
+                customGameName = customGameConfig?.name;
+              }
+            } catch (error) {
+              console.error('Failed to parse gameData for custom game:', error);
+            }
+          }
+
           matchesWithParticipants.push({
             ...match,
             participants: participants.map((p: any) => ({
               ...p,
               isWinner: p.isWinner === 1,
             })),
+            leagueName: match.leagueName ?? undefined,
+            customGameName,
           });
         }
 
@@ -318,7 +338,11 @@ export default function Matches() {
                         <BadgeText>{match.leagueName || "Standalone"}</BadgeText>
                       </Badge>
                       <Badge size="sm" variant="solid" action="info">
-                        <BadgeText>{match.gameType}</BadgeText>
+                        <BadgeText>
+                          {match.gameType === 'custom' && match.customGameName
+                            ? match.customGameName
+                            : match.gameType}
+                        </BadgeText>
                       </Badge>
                       {match.status === 'in_progress' && (
                         <Badge size="sm" variant="solid" action="warning">
@@ -348,6 +372,15 @@ export default function Matches() {
                               {participant.firstName} {participant.lastName}
                               {participant.isWinner && " ✓"}
                             </Text>
+                            {participant.score !== null && (
+                              <Text
+                                className={`text-typography-700 font-semibold ${
+                                  participant.isWinner ? "text-success-600" : ""
+                                }`}
+                              >
+                                {participant.score}
+                              </Text>
+                            )}
                           </HStack>
                         </React.Fragment>
                       ))}

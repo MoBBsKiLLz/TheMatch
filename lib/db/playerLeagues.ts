@@ -49,35 +49,25 @@ export async function getLeaguePlayers(
   db: Database,
   leagueId: number
 ): Promise<LeaguePlayer[]> {
-  const players = await db.all<{
-    id: number;
-    firstName: string;
-    lastName: string;
-    playerLeagueId: number;
-  }>(
+  // Fetch players with stats in a single query to avoid N+1 problem
+  const playersWithStats = await db.all<LeaguePlayer>(
     `SELECT
       p.id,
       p.firstName,
       p.lastName,
-      pl.id as playerLeagueId
+      pl.id as playerLeagueId,
+      COALESCE(SUM(CASE WHEN mp.isWinner = 1 AND m.status = 'completed' THEN 1 ELSE 0 END), 0) as wins,
+      COALESCE(SUM(CASE WHEN mp.isWinner = 0 AND m.status = 'completed' THEN 1 ELSE 0 END), 0) as losses,
+      COALESCE(COUNT(CASE WHEN m.status = 'completed' THEN 1 END), 0) as gamesPlayed
      FROM players p
      INNER JOIN player_leagues pl ON p.id = pl.playerId
+     LEFT JOIN match_participants mp ON p.id = mp.playerId
+     LEFT JOIN matches m ON mp.matchId = m.id AND m.leagueId = ?
      WHERE pl.leagueId = ?
+     GROUP BY p.id, p.firstName, p.lastName, pl.id
      ORDER BY p.lastName ASC, p.firstName ASC`,
-    [leagueId]
+    [leagueId, leagueId]
   );
-
-  // Calculate stats for each player
-  const playersWithStats: LeaguePlayer[] = [];
-  for (const player of players) {
-    const stats = await getPlayerStats(db, player.id, leagueId);
-    playersWithStats.push({
-      ...player,
-      wins: stats.wins,
-      losses: stats.losses,
-      gamesPlayed: stats.gamesPlayed,
-    });
-  }
 
   return playersWithStats;
 }

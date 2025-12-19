@@ -1,4 +1,5 @@
 import { Database } from './client';
+import { logger } from '../utils/logger';
 
 export async function addLeagueColorColumn(db: Database): Promise<void> {
     try {
@@ -15,10 +16,10 @@ export async function addLeagueColorColumn(db: Database): Promise<void> {
                 ALTER TABLE leagues
                 ADD COLUMN color TEXT DEFAULT '#1E6FFF'
             `);
-            console.log("Column 'color' added to 'leagues' table.");
+            logger.database("Column 'color' added to 'leagues' table");
         }
     } catch (error) {
-        console.error("Error adding 'color' column to 'leagues' table:", error);
+        logger.error("Error adding 'color' column to 'leagues' table", error);
     }
 }
 
@@ -33,15 +34,15 @@ export async function addLeagueFormatSettings(db: Database): Promise<void> {
 
         if (!hasFormat) {
             await db.run('ALTER TABLE leagues ADD COLUMN format TEXT DEFAULT "round-robin"');
-            console.log('Added format column to leagues table');
+            logger.database('Added format column to leagues table');
         }
 
         if (!hasDuration) {
             await db.run('ALTER TABLE leagues ADD COLUMN defaultDuration INTEGER DEFAULT 8');
-            console.log('Added defaultDuration column to leagues table');
+            logger.database('Added defaultDuration column to leagues table');
         }
     } catch (error) {
-        console.error('Failed to add league format settings:', error);
+        logger.error('Failed to add league format settings:', error);
     }
 }
 
@@ -58,20 +59,20 @@ export async function addSeasonColumnsToMatches(db: Database): Promise<void> {
 
     if (!hasSeasonId) {
       await db.run('ALTER TABLE matches ADD COLUMN seasonId INTEGER REFERENCES seasons(id)');
-      console.log('Added seasonId column to matches table');
+      logger.database('Added seasonId column to matches table');
     }
 
     if (!hasWeekNumber) {
       await db.run('ALTER TABLE matches ADD COLUMN weekNumber INTEGER');
-      console.log('Added weekNumber column to matches table');
+      logger.database('Added weekNumber column to matches table');
     }
 
     if (!hasIsMakeup) {
       await db.run('ALTER TABLE matches ADD COLUMN isMakeup INTEGER DEFAULT 0');
-      console.log('Added isMakeup column to matches table');
+      logger.database('Added isMakeup column to matches table');
     }
   } catch (error) {
-    console.error('Failed to add season columns:', error);
+    logger.error('Failed to add season columns:', error);
   }
 }
 
@@ -86,10 +87,10 @@ export async function addTournamentSeriesFormat(db: Database): Promise<void> {
 
     if (!hasSeriesFormat) {
       await db.run('ALTER TABLE tournament_matches ADD COLUMN seriesFormat TEXT DEFAULT "best-of-3"');
-      console.log('Added seriesFormat column to tournament_matches table');
+      logger.database('Added seriesFormat column to tournament_matches table');
     }
   } catch (error) {
-    console.error('Failed to add seriesFormat column:', error);
+    logger.error('Failed to add seriesFormat column:', error);
   }
 }
 
@@ -104,10 +105,10 @@ export async function addGameTypeToLeagues(db: Database): Promise<void> {
 
     if (!hasGameType) {
       await db.run('ALTER TABLE leagues ADD COLUMN gameType TEXT DEFAULT "pool"');
-      console.log('Added gameType column to leagues table');
+      logger.database('Added gameType column to leagues table');
     }
   } catch (error) {
-    console.error('Failed to add gameType column:', error);
+    logger.error('Failed to add gameType column:', error);
   }
 }
 
@@ -123,22 +124,22 @@ export async function addGameDataToMatches(db: Database): Promise<void> {
 
     if (!hasGameVariant) {
       await db.run('ALTER TABLE matches ADD COLUMN gameVariant TEXT');
-      console.log('Added gameVariant column to matches table');
+      logger.database('Added gameVariant column to matches table');
     }
 
     if (!hasGameData) {
       await db.run('ALTER TABLE matches ADD COLUMN gameData TEXT');
-      console.log('Added gameData column to matches table');
+      logger.database('Added gameData column to matches table');
     }
   } catch (error) {
-    console.error('Failed to add game data columns:', error);
+    logger.error('Failed to add game data columns:', error);
   }
 }
 
 // MAJOR REFACTOR: Multi-player match support
 export async function refactorMatchesForMultiPlayer(db: Database): Promise<void> {
   try {
-    console.log('Starting multi-player refactor...');
+    logger.database('Starting multi-player refactor...');
 
     // Check if matches table has the old structure
     const matchesInfo = await db.all<{ name: string }>(
@@ -147,14 +148,14 @@ export async function refactorMatchesForMultiPlayer(db: Database): Promise<void>
     const hasPlayerAId = matchesInfo.some(col => col.name === 'playerAId');
 
     if (!hasPlayerAId) {
-      console.log('Matches table already refactored, skipping...');
+      logger.database('Matches table already refactored, skipping...');
       return;
     }
 
     // Drop old tables (test data will be lost)
     await db.run('DROP TABLE IF EXISTS match_participants');
     await db.run('DROP TABLE IF EXISTS matches');
-    console.log('Dropped old matches and match_participants tables');
+    logger.database('Dropped old matches and match_participants tables');
 
     // Create new matches table with gameType as first-class field
     // leagueId is now optional to support standalone matches
@@ -175,7 +176,7 @@ export async function refactorMatchesForMultiPlayer(db: Database): Promise<void>
         FOREIGN KEY (seasonId) REFERENCES seasons(id)
       )
     `);
-    console.log('Created new matches table with gameType');
+    logger.database('Created new matches table with gameType');
 
     // Create match_participants table
     await db.run(`
@@ -191,18 +192,18 @@ export async function refactorMatchesForMultiPlayer(db: Database): Promise<void>
         FOREIGN KEY (playerId) REFERENCES players(id)
       )
     `);
-    console.log('Created match_participants table');
+    logger.database('Created match_participants table');
 
-    console.log('Multi-player refactor completed successfully');
+    logger.database('Multi-player refactor completed successfully');
   } catch (error) {
-    console.error('Failed to refactor matches for multi-player:', error);
+    logger.error('Failed to refactor matches for multi-player:', error);
     throw error;
   }
 }
 
 export async function refactorPlayerLeagues(db: Database): Promise<void> {
   try {
-    console.log('Starting player_leagues refactor...');
+    logger.database('Starting player_leagues refactor...');
 
     // Check if player_leagues has wins/losses columns
     const tableInfo = await db.all<{ name: string }>(
@@ -211,7 +212,7 @@ export async function refactorPlayerLeagues(db: Database): Promise<void> {
     const hasWins = tableInfo.some(col => col.name === 'wins');
 
     if (!hasWins) {
-      console.log('player_leagues already refactored, skipping...');
+      logger.database('player_leagues already refactored, skipping...');
       return;
     }
 
@@ -224,7 +225,7 @@ export async function refactorPlayerLeagues(db: Database): Promise<void> {
 
     // Drop and recreate without aggregate columns
     await db.run('DROP TABLE IF EXISTS player_leagues');
-    console.log('Dropped old player_leagues table');
+    logger.database('Dropped old player_leagues table');
 
     await db.run(`
       CREATE TABLE player_leagues (
@@ -235,7 +236,7 @@ export async function refactorPlayerLeagues(db: Database): Promise<void> {
         FOREIGN KEY (leagueId) REFERENCES leagues(id)
       )
     `);
-    console.log('Created new player_leagues table without aggregate columns');
+    logger.database('Created new player_leagues table without aggregate columns');
 
     // Restore player-league relationships (wins/losses will be calculated on-demand)
     for (const row of existingData) {
@@ -244,17 +245,17 @@ export async function refactorPlayerLeagues(db: Database): Promise<void> {
         [row.id, row.playerId, row.leagueId]
       );
     }
-    console.log(`Restored ${existingData.length} player-league relationships`);
+    logger.database(`Restored ${existingData.length} player-league relationships`);
 
   } catch (error) {
-    console.error('Failed to refactor player_leagues:', error);
+    logger.error('Failed to refactor player_leagues:', error);
     throw error;
   }
 }
 
 export async function ensureLeagueIdNullable(db: Database): Promise<void> {
   try {
-    console.log('Ensuring matches.leagueId is nullable for standalone matches...');
+    logger.database('Ensuring matches.leagueId is nullable for standalone matches...');
 
     // Check current table structure
     const tableInfo = await db.all<{ name: string; notnull: number }>(
@@ -266,12 +267,12 @@ export async function ensureLeagueIdNullable(db: Database): Promise<void> {
 
     // If leagueId has NOT NULL constraint (notnull === 1) OR isMakeup is missing, we need to recreate the table
     if ((leagueIdColumn && leagueIdColumn.notnull === 1) || !hasIsMakeup) {
-      console.log('Found schema issues, fixing...');
+      logger.database('Found schema issues, fixing...');
       if (leagueIdColumn && leagueIdColumn.notnull === 1) {
-        console.log('  - leagueId has NOT NULL constraint');
+        logger.database('  - leagueId has NOT NULL constraint');
       }
       if (!hasIsMakeup) {
-        console.log('  - isMakeup column is missing');
+        logger.database('  - isMakeup column is missing');
       }
 
       // Get all existing matches data
@@ -355,12 +356,12 @@ export async function ensureLeagueIdNullable(db: Database): Promise<void> {
         );
       }
 
-      console.log('Successfully fixed matches table schema');
+      logger.database('Successfully fixed matches table schema');
     } else {
-      console.log('Matches table schema is correct, skipping...');
+      logger.database('Matches table schema is correct, skipping...');
     }
   } catch (error) {
-    console.error('Failed to ensure matches table schema:', error);
+    logger.error('Failed to ensure matches table schema:', error);
     throw error;
   }
 }
@@ -389,9 +390,9 @@ export async function createCustomGameConfigsTable(db: Database): Promise<void> 
           createdAt INTEGER NOT NULL
         )
       `);
-      console.log('Created custom_game_configs table');
+      logger.database('Created custom_game_configs table');
     } else {
-      console.log('custom_game_configs table already exists');
+      logger.database('custom_game_configs table already exists');
     }
 
     // Add customGameConfigId column to leagues table
@@ -403,10 +404,10 @@ export async function createCustomGameConfigsTable(db: Database): Promise<void> 
 
     if (!hasCustomGameConfigId) {
       await db.run('ALTER TABLE leagues ADD COLUMN customGameConfigId INTEGER');
-      console.log('Added customGameConfigId column to leagues table');
+      logger.database('Added customGameConfigId column to leagues table');
     }
   } catch (error) {
-    console.error('Failed to create custom_game_configs table:', error);
+    logger.error('Failed to create custom_game_configs table:', error);
     throw error;
   }
 }

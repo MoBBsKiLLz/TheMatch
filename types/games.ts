@@ -57,5 +57,9 @@ export type UnoGameData = {
 // Import custom game types
 import { CustomGameData } from './customGame';
 
-// Union type for all game data
-export type GameData = PoolGameData | DartsGameData | DominosGameData | UnoGameData | CustomGameData;
+export type BaseGameData = {
+  playerScores: Record<number, number>; // Maps playerId to score
+};
+
+// Use Intersection to add playerScores to every game type
+export type GameData = (PoolGameData | DartsGameData | DominosGameData | UnoGameData | CustomGameData) & BaseGameData;

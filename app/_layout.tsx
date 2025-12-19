@@ -12,10 +12,15 @@ import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { DatabaseProvider } from "@/lib/db/provider";
 import { useColorScheme } from "react-native";
+import { ErrorBoundary as CustomErrorBoundary } from "@/components/ErrorBoundary";
+import { initializeSentry } from "@/lib/utils/sentry";
 
 export {
   ErrorBoundary,
 } from "expo-router";
+
+// Initialize Sentry for error tracking and performance monitoring
+initializeSentry();
 
 SplashScreen.preventAutoHideAsync();
 
@@ -49,15 +54,17 @@ function RootLayoutNav() {
   const colorMode: 'light' | 'dark' = systemColorScheme === "dark" ? "dark" : "light";
 
   return (
-    <DatabaseProvider>
-      <GluestackUIProvider mode={colorMode}>
-        <ThemeProvider value={colorMode === "dark" ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-        </ThemeProvider>
-      </GluestackUIProvider>
-    </DatabaseProvider>
+    <CustomErrorBoundary>
+      <DatabaseProvider>
+        <GluestackUIProvider mode={colorMode}>
+          <ThemeProvider value={colorMode === "dark" ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(tabs)" />
+            </Stack>
+          </ThemeProvider>
+        </GluestackUIProvider>
+      </DatabaseProvider>
+    </CustomErrorBoundary>
   );
 }

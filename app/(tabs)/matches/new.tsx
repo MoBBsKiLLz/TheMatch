@@ -48,8 +48,11 @@ import { PoolMatchForm } from "@/components/match-forms/PoolMatchForm";
 import { DartsMatchForm } from "@/components/match-forms/DartsMatchForm";
 import { DominosMatchForm } from "@/components/match-forms/DominosMatchForm";
 import { UnoMatchForm } from "@/components/match-forms/UnoMatchForm";
+import { CustomMatchForm } from "@/components/match-forms/CustomMatchForm";
 import { ParticipantInfo } from "@/components/match-forms/types";
 import { SearchableSelect, SelectOption } from "@/components/SearchableSelect";
+import { getAllCustomGameConfigs, getCustomGameConfig } from "@/lib/db/customGames";
+import { CustomGameConfig } from "@/types/customGame";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
 import { Calendar } from "lucide-react-native";
@@ -89,6 +92,9 @@ export default function NewMatch() {
   // Standalone match state
   const [isStandalone, setIsStandalone] = useState(false);
   const [standaloneGameType, setStandaloneGameType] = useState<GameType>('pool');
+  const [standaloneCustomGameConfigId, setStandaloneCustomGameConfigId] = useState<string>("");
+  const [customGameConfigs, setCustomGameConfigs] = useState<Array<{ id: number; name: string }>>([]);
+  const [customGameConfig, setCustomGameConfig] = useState<CustomGameConfig | null>(null);
 
   // Multi-player state
   const [participants, setParticipants] = useState<ParticipantState[]>([
@@ -113,7 +119,7 @@ export default function NewMatch() {
   const [gameVariant, setGameVariant] = useState<string>('');
   const [gameData, setGameData] = useState<GameData | null>(null);
 
-  // Load leagues and check for players
+  // Load leagues, custom games, and check for players
   useEffect(() => {
     async function loadLeagues() {
       if (!db) return;
@@ -123,6 +129,10 @@ export default function NewMatch() {
           "SELECT * FROM leagues ORDER BY name ASC"
         );
         setLeagues(results);
+
+        // Load custom game configs
+        const configs = await getAllCustomGameConfigs(db);
+        setCustomGameConfigs(configs);
 
         // Check total number of players
         const playerCountResult = await db.get<{ count: number }>(
@@ -157,19 +167,31 @@ export default function NewMatch() {
           );
           setLeaguePlayers(allPlayers);
 
-          // Set default variant for standalone game type
-          const config = getGameConfig(standaloneGameType);
-          setGameVariant(config.variants[0]);
+          // Load custom game config if custom game type selected
+          let loadedConfig = null;
+          if (standaloneGameType === 'custom' && standaloneCustomGameConfigId) {
+            loadedConfig = await getCustomGameConfig(db, Number(standaloneCustomGameConfigId));
+            setCustomGameConfig(loadedConfig);
+          }
 
-          // Initialize participants
-          const initialCount = config.minPlayers;
-          setPlayerCount(initialCount);
-          setParticipants(
-            Array.from({ length: initialCount }, () => ({
-              playerId: "",
-              isWinner: false,
-            }))
-          );
+          // Set default variant and participants for standalone game type
+          // Skip if custom game type but no config selected yet
+          if (standaloneGameType !== 'custom' || loadedConfig) {
+            const config = getGameConfig(standaloneGameType, loadedConfig ?? undefined);
+            if (config) {
+              setGameVariant(config.variants[0]);
+
+              // Initialize participants
+              const initialCount = config.minPlayers;
+              setPlayerCount(initialCount);
+              setParticipants(
+                Array.from({ length: initialCount }, () => ({
+                  playerId: "",
+                  isWinner: false,
+                }))
+              );
+            }
+          }
         } else if (selectedLeague) {
           // League mode
           setIsStandalone(false);
@@ -178,20 +200,29 @@ export default function NewMatch() {
           const leagueData = await findById<League>(db, 'leagues', Number(selectedLeague));
           setLeague(leagueData);
 
-          // Set default variant and player count based on game type
-          if (leagueData?.gameType) {
-            const config = getGameConfig(leagueData.gameType);
-            setGameVariant(config.variants[0]);
+          // Load custom game config if league uses custom game type
+          let loadedConfig = null;
+          if (leagueData?.gameType === 'custom' && leagueData.customGameConfigId) {
+            loadedConfig = await getCustomGameConfig(db, leagueData.customGameConfigId);
+            setCustomGameConfig(loadedConfig);
+          }
 
-            // Initialize participants based on minPlayers
-            const initialCount = config.minPlayers;
-            setPlayerCount(initialCount);
-            setParticipants(
-              Array.from({ length: initialCount }, () => ({
-                playerId: "",
-                isWinner: false,
-              }))
-            );
+          // Set default variant and player count based on game type
+          if (leagueData?.gameType && (leagueData.gameType !== 'custom' || loadedConfig)) {
+            const config = getGameConfig(leagueData.gameType, loadedConfig ?? undefined);
+            if (config) {
+              setGameVariant(config.variants[0]);
+
+              // Initialize participants based on minPlayers
+              const initialCount = config.minPlayers;
+              setPlayerCount(initialCount);
+              setParticipants(
+                Array.from({ length: initialCount }, () => ({
+                  playerId: "",
+                  isWinner: false,
+                }))
+              );
+            }
           }
 
           // Load league players
@@ -204,7 +235,7 @@ export default function NewMatch() {
     }
 
     loadLeagueAndPlayers();
-  }, [db, selectedLeague, standaloneGameType]);
+  }, [db, selectedLeague, standaloneGameType, standaloneCustomGameConfigId]);
 
   // Pre-fill league if provided
   useEffect(() => {
@@ -358,13 +389,28 @@ export default function NewMatch() {
     try {
       // Build participants array for createMatch
       const matchParticipants: CreateMatchParticipant[] = participants.map(
-        (p, index) => ({
-          playerId: Number(p.playerId),
-          seatIndex: index,
-          isWinner: p.isWinner,
-          score: null, // TODO: get from game-specific forms if needed
-          finishPosition: null,
-        })
+        (p, index) => {
+          // Extract score from gameData if available
+          let score = null;
+          if (gameData) {
+            // For Uno and Dominos, finalScores is an array indexed by participant
+            if ('finalScores' in gameData && Array.isArray(gameData.finalScores)) {
+              score = gameData.finalScores[index] ?? null;
+            }
+            // For Custom games, playerScores is keyed by playerId
+            else if ('playerScores' in gameData && typeof gameData.playerScores === 'object') {
+              score = gameData.playerScores[Number(p.playerId)] ?? null;
+            }
+          }
+
+          return {
+            playerId: Number(p.playerId),
+            seatIndex: index,
+            isWinner: p.isWinner,
+            score,
+            finishPosition: null,
+          };
+        }
       );
 
       const gameType = isStandalone ? standaloneGameType : league!.gameType;
@@ -509,39 +555,91 @@ export default function NewMatch() {
 
             {/* Game Type Selector (for standalone matches) */}
             {isStandalone && (
-              <FormControl isRequired>
-                <FormControlLabel>
-                  <FormControlLabelText>Game Type</FormControlLabelText>
-                </FormControlLabel>
-                <Select
-                  selectedValue={standaloneGameType}
-                  onValueChange={(value) => setStandaloneGameType(value as GameType)}
-                  isDisabled={isSubmitting}
-                >
-                  <SelectTrigger variant="outline" size="lg">
-                    <SelectInput
-                      className="flex-1"
-                      value={
-                        standaloneGameType.charAt(0).toUpperCase() +
-                        standaloneGameType.slice(1)
-                      }
-                    />
-                    <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
-                  </SelectTrigger>
-                  <SelectPortal>
-                    <SelectBackdrop />
-                    <SelectContent>
-                      <SelectDragIndicatorWrapper>
-                        <SelectDragIndicator />
-                      </SelectDragIndicatorWrapper>
-                      <SelectItem label="Pool" value="pool" />
-                      <SelectItem label="Darts" value="darts" />
-                      <SelectItem label="Dominos" value="dominos" />
-                      <SelectItem label="Uno" value="uno" />
-                    </SelectContent>
-                  </SelectPortal>
-                </Select>
-              </FormControl>
+              <>
+                <FormControl isRequired>
+                  <FormControlLabel>
+                    <FormControlLabelText>Game Type</FormControlLabelText>
+                  </FormControlLabel>
+                  <Select
+                    selectedValue={standaloneGameType}
+                    onValueChange={(value) => setStandaloneGameType(value as GameType)}
+                    isDisabled={isSubmitting}
+                  >
+                    <SelectTrigger variant="outline" size="lg">
+                      <SelectInput
+                        className="flex-1"
+                        value={
+                          standaloneGameType === 'custom'
+                            ? 'Custom Game'
+                            : standaloneGameType.charAt(0).toUpperCase() + standaloneGameType.slice(1)
+                        }
+                      />
+                      <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                    </SelectTrigger>
+                    <SelectPortal>
+                      <SelectBackdrop />
+                      <SelectContent>
+                        <SelectDragIndicatorWrapper>
+                          <SelectDragIndicator />
+                        </SelectDragIndicatorWrapper>
+                        <SelectItem label="Pool" value="pool" />
+                        <SelectItem label="Darts" value="darts" />
+                        <SelectItem label="Dominos" value="dominos" />
+                        <SelectItem label="Uno" value="uno" />
+                        <SelectItem label="Custom Game" value="custom" />
+                      </SelectContent>
+                    </SelectPortal>
+                  </Select>
+                </FormControl>
+
+                {/* Custom Game Configuration Selector */}
+                {standaloneGameType === 'custom' && (
+                  <FormControl isRequired>
+                    <FormControlLabel>
+                      <FormControlLabelText>Custom Game</FormControlLabelText>
+                    </FormControlLabel>
+                    {customGameConfigs.length > 0 ? (
+                      <Select
+                        selectedValue={standaloneCustomGameConfigId}
+                        onValueChange={setStandaloneCustomGameConfigId}
+                        isDisabled={isSubmitting}
+                      >
+                        <SelectTrigger variant="outline" size="lg">
+                          <SelectInput
+                            placeholder="Select custom game"
+                            value={
+                              standaloneCustomGameConfigId
+                                ? customGameConfigs.find(c => String(c.id) === standaloneCustomGameConfigId)?.name || ""
+                                : ""
+                            }
+                            className="flex-1"
+                          />
+                          <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                        </SelectTrigger>
+                        <SelectPortal>
+                          <SelectBackdrop />
+                          <SelectContent>
+                            <SelectDragIndicatorWrapper>
+                              <SelectDragIndicator />
+                            </SelectDragIndicatorWrapper>
+                            {customGameConfigs.map((config) => (
+                              <SelectItem
+                                key={config.id}
+                                label={config.name}
+                                value={String(config.id)}
+                              />
+                            ))}
+                          </SelectContent>
+                        </SelectPortal>
+                      </Select>
+                    ) : (
+                      <Text className="text-typography-500">
+                        No custom games available. Create one first.
+                      </Text>
+                    )}
+                  </FormControl>
+                )}
+              </>
             )}
 
             {/* Season & Week Info */}
@@ -726,7 +824,10 @@ export default function NewMatch() {
                   <PoolMatchForm
                     variant={gameVariant as PoolVariant}
                     onVariantChange={setGameVariant}
-                    onDataChange={setGameData}
+                    onDataChange={(data) => {
+                      // Pool game doesn't have finalScores, so playerScores is empty
+                      setGameData({ ...data, playerScores: {} });
+                    }}
                   />
                 )}
 
@@ -735,14 +836,25 @@ export default function NewMatch() {
                     variant={gameVariant}
                     onVariantChange={setGameVariant}
                     participants={buildParticipantInfoList()}
-                    onDataChange={setGameData}
+                    onDataChange={(data) => {
+                      // Darts game doesn't have finalScores, so playerScores is empty
+                      setGameData({ ...data, playerScores: {} });
+                    }}
                   />
                 )}
 
                 {(isStandalone ? standaloneGameType : league?.gameType) === 'dominos' && (
                   <DominosMatchForm
                     participants={buildParticipantInfoList()}
-                    onDataChange={setGameData}
+                    onDataChange={(data) => {
+                      // Convert DominosGameData to GameData by adding playerScores
+                      const participantList = buildParticipantInfoList();
+                      const playerScores: Record<number, number> = {};
+                      participantList.forEach((p, idx) => {
+                        playerScores[p.playerId] = data.finalScores[idx] || 0;
+                      });
+                      setGameData({ ...data, playerScores });
+                    }}
                     onWinnersChange={(winnerPlayerIds) => {
                       // Auto-set winners based on dominos target score
                       setParticipants((prev) =>
@@ -758,9 +870,37 @@ export default function NewMatch() {
                 {(isStandalone ? standaloneGameType : league?.gameType) === 'uno' && (
                   <UnoMatchForm
                     participants={buildParticipantInfoList()}
-                    onDataChange={setGameData}
+                    onDataChange={(data) => {
+                      // Convert UnoGameData to GameData by adding playerScores
+                      const participantList = buildParticipantInfoList();
+                      const playerScores: Record<number, number> = {};
+                      participantList.forEach((p, idx) => {
+                        playerScores[p.playerId] = data.finalScores[idx] || 0;
+                      });
+                      setGameData({ ...data, playerScores });
+                    }}
                     onWinnersChange={(winnerPlayerIds) => {
                       // Auto-set winners based on uno target score
+                      setParticipants((prev) =>
+                        prev.map((p) => ({
+                          ...p,
+                          isWinner: winnerPlayerIds.includes(Number(p.playerId)),
+                        }))
+                      );
+                    }}
+                  />
+                )}
+
+                {(isStandalone ? standaloneGameType : league?.gameType) === 'custom' && customGameConfig && (
+                  <CustomMatchForm
+                    participants={buildParticipantInfoList()}
+                    config={customGameConfig}
+                    onDataChange={(data) => {
+                      // CustomGameData already has playerScores
+                      setGameData(data as GameData);
+                    }}
+                    onWinnersChange={(winnerPlayerIds) => {
+                      // Auto-set winners based on custom game config
                       setParticipants((prev) =>
                         prev.map((p) => ({
                           ...p,

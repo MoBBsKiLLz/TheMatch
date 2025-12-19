@@ -23,6 +23,7 @@ import { MatchWithParticipants, MatchParticipant, Match } from "@/types/match";
 import { deleteMatch } from "@/lib/db/matches";
 import { update } from "@/lib/db/queries";
 import { DominosGameData, UnoGameData } from "@/types/games";
+import { CustomGameData } from "@/types/customGame";
 import {
   Accordion,
   AccordionItem,
@@ -48,10 +49,11 @@ export default function MatchDetail() {
       setIsLoading(true);
 
       // Get match
-      const match = await db.get<Match & { leagueName: string | null }>(
-        `SELECT m.*, l.name as leagueName
+      const match = await db.get<Match & { leagueName: string | null; customGameName: string | null }>(
+        `SELECT m.*, l.name as leagueName, cgc.name as customGameName
         FROM matches m
         LEFT JOIN leagues l ON m.leagueId = l.id
+        LEFT JOIN custom_game_configs cgc ON l.customGameConfigId = cgc.id
         WHERE m.id = ?`,
         [Number(id)]
       );
@@ -79,12 +81,31 @@ export default function MatchDetail() {
       // Convert isWinner from integer to boolean
       const participantsWithBoolean = participants.map((p) => ({
         ...p,
-        isWinner: p.isWinner === 1,
+        isWinner: Boolean(p.isWinner),
       }));
+
+      // For standalone custom games, fetch custom game name from gameData
+      let customGameName = match.customGameName;
+      if (match.gameType === 'custom' && !customGameName && match.gameData) {
+        try {
+          const parsedGameData = JSON.parse(match.gameData);
+          if (parsedGameData.configId) {
+            const customGameConfig = await db.get<{ name: string }>(
+              'SELECT name FROM custom_game_configs WHERE id = ?',
+              [parsedGameData.configId]
+            );
+            customGameName = customGameConfig?.name || null;
+          }
+        } catch (error) {
+          console.error('Failed to parse gameData for custom game:', error);
+        }
+      }
 
       setMatchDetails({
         ...match,
         participants: participantsWithBoolean,
+        leagueName: match.leagueName ?? undefined,
+        customGameName: customGameName ?? undefined,
       });
     } catch (error) {
       console.error("Failed to fetch match:", error);
@@ -177,7 +198,7 @@ export default function MatchDetail() {
   const winners = matchDetails.participants.filter((p) => p.isWinner);
 
   // Parse game data if available
-  let parsedGameData: DominosGameData | UnoGameData | null = null;
+  let parsedGameData: DominosGameData | UnoGameData | CustomGameData | null = null;
   if (matchDetails.gameData) {
     try {
       parsedGameData = JSON.parse(matchDetails.gameData);
@@ -201,7 +222,7 @@ export default function MatchDetail() {
           <AccordionItem value="game-details">
             <AccordionHeader>
               <AccordionTrigger>
-                {({ isExpanded }) => (
+                {({ isExpanded }: { isExpanded: boolean }) => (
                   <>
                     <AccordionTitleText>
                       Game Details ({dominosData.games.length} games played)
@@ -274,7 +295,7 @@ export default function MatchDetail() {
           <AccordionItem value="game-details">
             <AccordionHeader>
               <AccordionTrigger>
-                {({ isExpanded }) => (
+                {({ isExpanded }: { isExpanded: boolean }) => (
                   <>
                     <AccordionTitleText>
                       Game Details ({unoData.games.length} games played)
@@ -325,6 +346,73 @@ export default function MatchDetail() {
                   <Text size="xs" className="text-typography-500">
                     Target: {unoData.targetScore}
                   </Text>
+                </VStack>
+              </VStack>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      );
+    }
+
+    if (matchDetails.gameType === 'custom' && 'games' in parsedGameData) {
+      const customData = parsedGameData as CustomGameData;
+      return (
+        <Accordion
+          type="multiple"
+          value={accordionValue}
+          onValueChange={setAccordionValue}
+        >
+          <AccordionItem value="game-details">
+            <AccordionHeader>
+              <AccordionTrigger>
+                {({ isExpanded }: { isExpanded: boolean }) => (
+                  <>
+                    <AccordionTitleText>
+                      Game Details ({customData.games.length} games played)
+                    </AccordionTitleText>
+                    <AccordionIcon
+                      as={isExpanded ? ChevronUpIcon : ChevronDownIcon}
+                      className="ml-3"
+                    />
+                  </>
+                )}
+              </AccordionTrigger>
+            </AccordionHeader>
+            <AccordionContent>
+              <VStack space="md" className="pt-2">
+                {customData.games.map((game, idx) => {
+                  const winner = game.winnerId
+                    ? matchDetails.participants.find((p) => p.playerId === game.winnerId)
+                    : null;
+
+                  return (
+                    <Card key={idx} size="sm" variant="outline" className="p-3">
+                      <VStack space="xs">
+                        <Text size="sm" className="font-semibold">
+                          Game {idx + 1}
+                        </Text>
+                        {matchDetails.participants.map((participant, pIdx) => (
+                          <Text key={participant.playerId} size="sm">
+                            {participant.firstName} {participant.lastName}: {game.scores[pIdx] || 0}
+                          </Text>
+                        ))}
+                        {winner && (
+                          <Text size="xs" className="text-success-600">
+                            Winner: {winner.firstName} {winner.lastName}
+                          </Text>
+                        )}
+                      </VStack>
+                    </Card>
+                  );
+                })}
+                <Divider />
+                <VStack space="xs">
+                  <Text size="sm" className="font-semibold">Final Scores</Text>
+                  {matchDetails.participants.map((participant, idx) => (
+                    <Text key={participant.playerId} size="sm">
+                      {participant.firstName} {participant.lastName}: {customData.finalScores[idx] || 0}
+                    </Text>
+                  ))}
                 </VStack>
               </VStack>
             </AccordionContent>
@@ -389,7 +477,9 @@ export default function MatchDetail() {
                   Game
                 </Text>
                 <Text className="text-typography-900 font-medium">
-                  {matchDetails.gameType.charAt(0).toUpperCase() + matchDetails.gameType.slice(1)}
+                  {matchDetails.gameType === 'custom' && matchDetails.customGameName
+                    ? matchDetails.customGameName
+                    : matchDetails.gameType.charAt(0).toUpperCase() + matchDetails.gameType.slice(1)}
                   {matchDetails.gameVariant && ` - ${matchDetails.gameVariant}`}
                 </Text>
               </VStack>
@@ -406,7 +496,7 @@ export default function MatchDetail() {
                   <Card
                     key={participant.id}
                     size="md"
-                    variant={participant.isWinner ? "solid" : "outline"}
+                    variant={participant.isWinner ? "filled" : "outline"}
                     className={participant.isWinner ? "bg-success-50 border-success-500" : ""}
                   >
                     <VStack space="sm" className="p-4">

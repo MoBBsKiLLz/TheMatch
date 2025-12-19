@@ -30,10 +30,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="matches"
+        name="custom-games"
         options={{
-          title: 'Matches',
-          tabBarIcon: ({ color }) => <TabBarIcon name="handshake-o" color={color} />,
+          title: 'Games',
+          tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -41,6 +41,13 @@ export default function TabLayout() {
         options={{
           title: 'Leagues',
           tabBarIcon: ({ color }) => <TabBarIcon name="bank" color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="matches"
+        options={{
+          title: 'Matches',
+          tabBarIcon: ({ color }) => <TabBarIcon name="handshake-o" color={color} />,
         }}
       />
       <Tabs.Screen

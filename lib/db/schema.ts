@@ -138,4 +138,59 @@ export async function setupDatabase(db: SQLiteDatabase) {
       FOREIGN KEY (nextMatchId) REFERENCES tournament_matches(id)
     );
   `);
+
+  // Custom game configuration tables
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS custom_game_configs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      minPlayers INTEGER NOT NULL DEFAULT 2,
+      maxPlayers INTEGER NOT NULL DEFAULT 4,
+      scoringType TEXT NOT NULL,
+      createdAt INTEGER NOT NULL
+    );
+  `);
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS custom_game_fields (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      configId INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      required INTEGER DEFAULT 0,
+      sortOrder INTEGER DEFAULT 0,
+      FOREIGN KEY (configId) REFERENCES custom_game_configs(id) ON DELETE CASCADE
+    );
+  `);
+
+  // Create indexes for foreign keys and frequently queried columns
+  // These significantly improve query performance
+  await db.execAsync(`
+    CREATE INDEX IF NOT EXISTS idx_player_leagues_playerId ON player_leagues(playerId);
+    CREATE INDEX IF NOT EXISTS idx_player_leagues_leagueId ON player_leagues(leagueId);
+
+    CREATE INDEX IF NOT EXISTS idx_matches_leagueId ON matches(leagueId);
+    CREATE INDEX IF NOT EXISTS idx_matches_seasonId ON matches(seasonId);
+    CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
+    CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
+
+    CREATE INDEX IF NOT EXISTS idx_match_participants_matchId ON match_participants(matchId);
+    CREATE INDEX IF NOT EXISTS idx_match_participants_playerId ON match_participants(playerId);
+    CREATE INDEX IF NOT EXISTS idx_match_participants_isWinner ON match_participants(isWinner);
+
+    CREATE INDEX IF NOT EXISTS idx_seasons_leagueId ON seasons(leagueId);
+    CREATE INDEX IF NOT EXISTS idx_seasons_status ON seasons(status);
+
+    CREATE INDEX IF NOT EXISTS idx_week_attendance_seasonId ON week_attendance(seasonId);
+    CREATE INDEX IF NOT EXISTS idx_week_attendance_playerId ON week_attendance(playerId);
+
+    CREATE INDEX IF NOT EXISTS idx_tournaments_seasonId ON tournaments(seasonId);
+    CREATE INDEX IF NOT EXISTS idx_tournaments_leagueId ON tournaments(leagueId);
+
+    CREATE INDEX IF NOT EXISTS idx_tournament_matches_tournamentId ON tournament_matches(tournamentId);
+    CREATE INDEX IF NOT EXISTS idx_tournament_matches_playerAId ON tournament_matches(playerAId);
+    CREATE INDEX IF NOT EXISTS idx_tournament_matches_playerBId ON tournament_matches(playerBId);
+
+    CREATE INDEX IF NOT EXISTS idx_custom_game_fields_configId ON custom_game_fields(configId);
+  `);
 }

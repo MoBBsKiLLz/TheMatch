@@ -34,6 +34,7 @@ export type MatchWithParticipants = Match & {
     lastName: string;
   })[];
   leagueName?: string;
+  customGameName?: string;
 };
 
 // Alias for backward compatibility

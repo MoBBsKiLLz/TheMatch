@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Keyboard } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "@/components/ui/scroll-view";
@@ -17,7 +17,7 @@ import {
 import { Input, InputField } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, Href, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { insert, update, findById } from "@/lib/db/queries";
 import { League, GameType } from "@/types/league";
@@ -35,7 +35,10 @@ import {
   SelectDragIndicator,
   SelectDragIndicatorWrapper,
 } from "@/components/ui/select";
-import { ChevronDownIcon } from "lucide-react-native";
+import { ChevronDownIcon, Plus } from "lucide-react-native";
+import { Icon } from "@/components/ui/icon";
+import { CustomGameConfig } from "@/types/customGame";
+import { getAllCustomGameConfigs } from "@/lib/db/customGames";
 
 export default function NewLeague() {
   const { db } = useDatabase();
@@ -50,6 +53,26 @@ export default function NewLeague() {
   const [format, setFormat] = useState<LeagueFormat>("round-robin");
   const [defaultDuration, setDefaultDuration] = useState(8);
   const [gameType, setGameType] = useState<GameType>("pool");
+  const [customGameConfigId, setCustomGameConfigId] = useState<string>("");
+  const [customGameConfigs, setCustomGameConfigs] = useState<CustomGameConfig[]>([]);
+
+  // Load custom game configs - use useFocusEffect to reload when returning from custom game creation
+  useFocusEffect(
+    useCallback(() => {
+      async function loadCustomGames() {
+        if (!db) return;
+
+        try {
+          const configs = await getAllCustomGameConfigs(db);
+          setCustomGameConfigs(configs);
+        } catch (error) {
+          console.error("Failed to load custom game configs:", error);
+        }
+      }
+
+      loadCustomGames();
+    }, [db])
+  );
 
   // Load existing league data if editing
   useEffect(() => {
@@ -65,6 +88,7 @@ export default function NewLeague() {
           setFormat(league.format || "round-robin");
           setDefaultDuration(league.defaultDuration || 8);
           setGameType(league.gameType || "pool");
+          setCustomGameConfigId(league.customGameConfigId ? String(league.customGameConfigId) : "");
         }
       } catch (error) {
         console.error("Failed to load league:", error);
@@ -86,6 +110,12 @@ export default function NewLeague() {
       return;
     }
 
+    // Validate custom game config selection
+    if (gameType === 'custom' && !customGameConfigId) {
+      setError("Please select a custom game configuration");
+      return;
+    }
+
     // Ensure duration is valid
     const finalDuration = defaultDuration > 0 ? defaultDuration : 8;
 
@@ -98,25 +128,25 @@ export default function NewLeague() {
     Keyboard.dismiss();
 
     try {
+      const leagueData: any = {
+        name: name.trim(),
+        location: location.trim() || null,
+        color: color,
+        format: format,
+        defaultDuration: finalDuration,
+        gameType: gameType,
+      };
+
+      // Add customGameConfigId only if gameType is custom
+      if (gameType === 'custom' && customGameConfigId) {
+        leagueData.customGameConfigId = Number(customGameConfigId);
+      }
+
       if (isEditMode) {
-        await update(db, "leagues", Number(id), {
-          name: name.trim(),
-          location: location.trim() || null,
-          color: color,
-          format: format,
-          defaultDuration: finalDuration,
-          gameType: gameType,
-        });
+        await update(db, "leagues", Number(id), leagueData);
       } else {
-        await insert(db, "leagues", {
-          name: name.trim(),
-          location: location.trim() || null,
-          createdAt: Date.now(),
-          color: color,
-          format: format,
-          defaultDuration: finalDuration,
-          gameType: gameType,
-        });
+        leagueData.createdAt = Date.now();
+        await insert(db, "leagues", leagueData);
       }
 
       router.back();
@@ -216,7 +246,9 @@ export default function NewLeague() {
                         ? "Darts"
                         : gameType === "dominos"
                         ? "Dominos"
-                        : "Uno"
+                        : gameType === "uno"
+                        ? "Uno"
+                        : "Custom Game"
                     }
                     className="flex-1"
                   />
@@ -232,6 +264,7 @@ export default function NewLeague() {
                     <SelectItem label="Darts" value="darts" />
                     <SelectItem label="Dominos" value="dominos" />
                     <SelectItem label="Uno" value="uno" />
+                    <SelectItem label="Custom Game" value="custom" />
                   </SelectContent>
                 </SelectPortal>
               </Select>
@@ -241,6 +274,72 @@ export default function NewLeague() {
                   : "Choose the type of game for this league"}
               </Text>
             </FormControl>
+
+            {/* Custom Game Configuration Selector */}
+            {gameType === 'custom' && (
+              <VStack space="md">
+                <FormControl isRequired isInvalid={!!error && !customGameConfigId}>
+                  <FormControlLabel>
+                    <FormControlLabelText>Custom Game Configuration</FormControlLabelText>
+                  </FormControlLabel>
+                  {customGameConfigs.length > 0 ? (
+                    <Select
+                      selectedValue={customGameConfigId}
+                      onValueChange={setCustomGameConfigId}
+                      isDisabled={isSubmitting || isEditMode}
+                    >
+                      <SelectTrigger variant="outline" size="lg">
+                        <SelectInput
+                          placeholder="Select custom game"
+                          value={
+                            customGameConfigId
+                              ? customGameConfigs.find(c => String(c.id) === customGameConfigId)?.name || ""
+                              : ""
+                          }
+                          className="flex-1"
+                        />
+                        <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+                      </SelectTrigger>
+                      <SelectPortal>
+                        <SelectBackdrop />
+                        <SelectContent>
+                          <SelectDragIndicatorWrapper>
+                            <SelectDragIndicator />
+                          </SelectDragIndicatorWrapper>
+                          {customGameConfigs.map((config) => (
+                            <SelectItem
+                              key={config.id}
+                              label={config.name}
+                              value={String(config.id)}
+                            />
+                          ))}
+                        </SelectContent>
+                      </SelectPortal>
+                    </Select>
+                  ) : (
+                    <Text className="text-typography-500">
+                      No custom games created yet
+                    </Text>
+                  )}
+                  {error && !customGameConfigId && gameType === 'custom' && (
+                    <FormControlError>
+                      <FormControlErrorText>{error}</FormControlErrorText>
+                    </FormControlError>
+                  )}
+                </FormControl>
+
+                <Button
+                  size="md"
+                  variant="outline"
+                  action="secondary"
+                  onPress={() => router.push("/(tabs)/custom-games/new" as Href)}
+                  isDisabled={isSubmitting || isEditMode}
+                >
+                  <Icon as={Plus} size="sm" className="mr-2" />
+                  <ButtonText>Create New Custom Game</ButtonText>
+                </Button>
+              </VStack>
+            )}
 
             {/* General Error */}
             {error && name.trim() && (

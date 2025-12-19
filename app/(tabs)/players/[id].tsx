@@ -41,11 +41,11 @@ export default function PlayerDetail() {
     {
       id: number;
       name: string;
-      season: string | null;
       location: string | null;
       color: string;
       wins: number;
       losses: number;
+      gamesPlayed: number;
       playerLeagueId: number;
     }[]
   >([]);
@@ -189,7 +189,6 @@ export default function PlayerDetail() {
 
   const getLeagueDetails = (league: (typeof playerLeagues)[0]) => {
     const parts = [];
-    if (league.season) parts.push(league.season);
     if (league.location) parts.push(league.location);
     return parts.join(" • ");
   };

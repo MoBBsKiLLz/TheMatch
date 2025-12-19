@@ -23,7 +23,8 @@ import { ParticipantInfo } from "@/components/match-forms/types";
 export default function ContinueMatch() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { db } = useDatabase();
-  const [matchDetails, setMatchDetails] = useState<MatchWithParticipants | null>(null);
+  const [matchDetails, setMatchDetails] =
+    useState<MatchWithParticipants | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [gameData, setGameData] = useState<GameData | null>(null);
@@ -69,7 +70,8 @@ export default function ContinueMatch() {
 
       setMatchDetails({
         ...match,
-        participants: participantsWithBoolean,
+        participants: participantsWithBoolean ?? [],
+        leagueName: match.leagueName ?? undefined,
       });
 
       // Set participants for forms
@@ -88,7 +90,7 @@ export default function ContinueMatch() {
           const parsed = JSON.parse(match.gameData);
           setGameData(parsed);
         } catch (e) {
-          console.error('Failed to parse game data:', e);
+          console.error("Failed to parse game data:", e);
         }
       }
     } catch (error) {
@@ -104,7 +106,7 @@ export default function ContinueMatch() {
     }, [fetchMatch])
   );
 
-  const handleSave = async (status: 'completed' | 'in_progress') => {
+  const handleSave = async (status: "completed" | "in_progress") => {
     if (!db || !matchDetails || !gameData) return;
 
     setIsSaving(true);
@@ -114,14 +116,14 @@ export default function ContinueMatch() {
       // Determine winners based on game data
       const winnerPlayerIds: number[] = [];
 
-      if (matchDetails.gameType === 'dominos' && 'finalScores' in gameData) {
+      if (matchDetails.gameType === "dominos" && "finalScores" in gameData) {
         const dominosData = gameData as DominosGameData;
         dominosData.finalScores.forEach((score, index) => {
           if (score >= dominosData.targetScore) {
             winnerPlayerIds.push(participants[index].playerId);
           }
         });
-      } else if (matchDetails.gameType === 'uno' && 'finalScores' in gameData) {
+      } else if (matchDetails.gameType === "uno" && "finalScores" in gameData) {
         const unoData = gameData as UnoGameData;
         unoData.finalScores.forEach((score, index) => {
           if (score >= unoData.targetScore) {
@@ -133,21 +135,45 @@ export default function ContinueMatch() {
       // Update match with new game data and status
       await updateMatch(db, Number(id), {
         gameData,
-        participants: matchDetails.participants.map((p) => ({
-          playerId: p.playerId,
-          seatIndex: p.seatIndex,
-          score: null,
-          finishPosition: null,
-          isWinner: winnerPlayerIds.includes(p.playerId),
-        })),
+        participants: matchDetails.participants.map((p, index) => {
+          // Extract score from gameData if available
+          let score = null;
+          if (gameData) {
+            // For Uno and Dominos, finalScores is an array indexed by participant
+            if (
+              "finalScores" in gameData &&
+              Array.isArray(gameData.finalScores)
+            ) {
+              score = gameData.finalScores[index] ?? null;
+            }
+            // For Custom games, playerScores is keyed by playerId
+            else if (
+              "playerScores" in gameData &&
+              typeof gameData.playerScores === "object"
+            ) {
+              score = gameData.playerScores[p.playerId] ?? null;
+            }
+          }
+
+          return {
+            playerId: p.playerId,
+            seatIndex: p.seatIndex,
+            score,
+            finishPosition: null,
+            isWinner: winnerPlayerIds.includes(p.playerId),
+          };
+        }),
       });
 
       // Update status
-      await db.run('UPDATE matches SET status = ? WHERE id = ?', [status, Number(id)]);
+      await db.run("UPDATE matches SET status = ? WHERE id = ?", [
+        status,
+        Number(id),
+      ]);
 
       Alert.alert(
         "Success",
-        status === 'completed' ? "Match completed!" : "Progress saved!",
+        status === "completed" ? "Match completed!" : "Progress saved!",
         [{ text: "OK", onPress: () => router.back() }]
       );
     } catch (error) {
@@ -186,7 +212,11 @@ export default function ContinueMatch() {
 
   return (
     <SafeAreaView className="flex-1 bg-background-0">
-      <ScrollView className="flex-1" contentContainerClassName="p-6" keyboardShouldPersistTaps="handled">
+      <ScrollView
+        className="flex-1"
+        contentContainerClassName="p-6"
+        keyboardShouldPersistTaps="handled"
+      >
         <VStack space="xl">
           <VStack space="sm">
             <Heading size="3xl" className="text-typography-900">
@@ -198,22 +228,37 @@ export default function ContinueMatch() {
           </VStack>
 
           <Text className="text-typography-600">
-            Add more games to this {matchDetails.gameType} match. Your previous games have been loaded.
+            Add more games to this {matchDetails.gameType} match. Your previous
+            games have been loaded.
           </Text>
 
-          {matchDetails.gameType === 'dominos' && (
+          {matchDetails.gameType === "dominos" && (
             <DominosMatchForm
               participants={participants}
-              onDataChange={setGameData}
+              onDataChange={(data) => {
+                // Convert DominosGameData to GameData by adding playerScores
+                const playerScores: Record<number, number> = {};
+                participants.forEach((p, idx) => {
+                  playerScores[p.playerId] = data.finalScores[idx] || 0;
+                });
+                setGameData({ ...data, playerScores });
+              }}
               onWinnersChange={() => {}} // Winners are set on save
               initialData={gameData as DominosGameData}
             />
           )}
 
-          {matchDetails.gameType === 'uno' && (
+          {matchDetails.gameType === "uno" && (
             <UnoMatchForm
               participants={participants}
-              onDataChange={setGameData}
+              onDataChange={(data) => {
+                // Convert UnoGameData to GameData by adding playerScores
+                const playerScores: Record<number, number> = {};
+                participants.forEach((p, idx) => {
+                  playerScores[p.playerId] = data.finalScores[idx] || 0;
+                });
+                setGameData({ ...data, playerScores });
+              }}
               onWinnersChange={() => {}} // Winners are set on save
               initialData={gameData as UnoGameData}
             />
@@ -236,7 +281,7 @@ export default function ContinueMatch() {
                 action="primary"
                 size="lg"
                 className="flex-1"
-                onPress={() => handleSave('completed')}
+                onPress={() => handleSave("completed")}
                 isDisabled={isSaving}
               >
                 <ButtonText numberOfLines={1}>
@@ -249,12 +294,10 @@ export default function ContinueMatch() {
               action="secondary"
               size="lg"
               variant="outline"
-              onPress={() => handleSave('in_progress')}
+              onPress={() => handleSave("in_progress")}
               isDisabled={isSaving}
             >
-              <ButtonText numberOfLines={1}>
-                Save In Progress
-              </ButtonText>
+              <ButtonText numberOfLines={1}>Save In Progress</ButtonText>
             </Button>
           </VStack>
         </VStack>

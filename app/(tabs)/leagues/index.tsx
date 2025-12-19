@@ -99,7 +99,6 @@ export default function Leagues() {
 
   const getLeagueDetails = (league: League) => {
     const parts = [];
-    if (league.season) parts.push(league.season);
     if (league.location) parts.push(league.location);
     return parts.join(" • ");
   };

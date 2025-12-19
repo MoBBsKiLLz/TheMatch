@@ -2,6 +2,12 @@ import { Database } from './client';
 import { CustomGameConfig } from '@/types/customGame';
 import { insert, update, remove, findById } from './queries';
 
+// Database representation with integers instead of booleans
+type CustomGameConfigDb = Omit<CustomGameConfig, 'trackIndividualGames' | 'allowNegativeScores'> & {
+  trackIndividualGames: number;
+  allowNegativeScores: number;
+};
+
 export async function createCustomGameConfig(
   db: Database,
   config: Omit<CustomGameConfig, 'id' | 'createdAt'>
@@ -25,7 +31,7 @@ export async function updateCustomGameConfig(
   id: number,
   config: Partial<Omit<CustomGameConfig, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const updates: any = { ...config };
+  const updates: Record<string, string | number> = { ...config };
 
   // Convert booleans to integers
   if (typeof config.trackIndividualGames === 'boolean') {
@@ -61,7 +67,7 @@ export async function getCustomGameConfig(
   db: Database,
   id: number
 ): Promise<CustomGameConfig | null> {
-  const config = await findById<any>(db, 'custom_game_configs', id);
+  const config = await findById<CustomGameConfigDb>(db, 'custom_game_configs', id);
 
   if (!config) return null;
 
@@ -76,7 +82,7 @@ export async function getCustomGameConfig(
 export async function getAllCustomGameConfigs(
   db: Database
 ): Promise<CustomGameConfig[]> {
-  const configs = await db.all<any>(
+  const configs = await db.all<CustomGameConfigDb>(
     'SELECT * FROM custom_game_configs ORDER BY name ASC'
   );
 

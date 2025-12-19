@@ -1,17 +1,17 @@
 {
   "expo": {
     "name": "The Match",
-    "slug": "starter-kit-expo",
+    "slug": "the-match",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "The Match",
+    "scheme": "thematch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
+      "image": "./assets/images/foreground.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#2c3639"
     },
     "ios": {
       "supportsTablet": true,
@@ -19,8 +19,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/images/foreground.png",
+        "backgroundColor": "#2c3639"
       },
       "edgeToEdgeEnabled": true,
       "package": "com.mzepeda.starterkitexpo"

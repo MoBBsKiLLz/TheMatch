@@ -1,10 +1,33 @@
 import {Database} from "./client";
 
+// Whitelist of allowed table names to prevent SQL injection
+const ALLOWED_TABLES = [
+    'players',
+    'leagues',
+    'seasons',
+    'matches',
+    'match_participants',
+    'player_leagues',
+    'player_season_weeks',
+    'custom_game_configs',
+    'custom_game_fields',
+] as const;
+
+type AllowedTable = typeof ALLOWED_TABLES[number];
+
+function validateTableName(table: string): asserts table is AllowedTable {
+    if (!ALLOWED_TABLES.includes(table as AllowedTable)) {
+        throw new Error(`Invalid table name: ${table}`);
+    }
+}
+
 export async function insert (
     db: Database,
     table: string,
     values: Record<string, any>
 ): Promise<number> {
+    validateTableName(table);
+
     const keys = Object.keys(values);
     const placeholders = keys.map(() => "?").join(", ");
     const params = Object.values(values);
@@ -27,6 +50,8 @@ export async function update (
     id: number,
     values: Record<string, any>
 ) {
+    validateTableName(table);
+
     const keys = Object.keys(values);
     const setters = keys.map((k) => `${k} = ?`).join(", ");
     const params = [...Object.values(values), id];
@@ -45,6 +70,8 @@ export async function remove (
     table: string,
     id: number
 ) {
+    validateTableName(table);
+
     const sql = `
         DELETE from ${table}
         WHERE id = ?
@@ -58,6 +85,7 @@ export async function findById<T>(
     table: string,
     id: number
 ): Promise<T | null> {
+    validateTableName(table);
     return db.get<T>(`SELECT * FROM ${table} WHERE id = ?`, [id]);
 }
 
@@ -65,5 +93,6 @@ export async function findAll<T>(
     db: Database,
     table: string
 ): Promise<T[]> {
+    validateTableName(table);
     return db.all<T>(`SELECT * FROM ${table}`);
 }

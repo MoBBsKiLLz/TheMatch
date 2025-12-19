@@ -466,8 +466,6 @@ export default function SeasonDetail() {
           text: "Record Win",
           onPress: async () => {
             try {
-              const poolGameData: PoolGameData = { winMethod: 'made_all_balls' };
-
               // Build participants array
               const participants: CreateMatchParticipant[] = [
                 {
@@ -481,6 +479,12 @@ export default function SeasonDetail() {
                   isWinner: winnerId === match.opponentId,
                 },
               ];
+
+              // Pool game data with playerScores
+              const poolGameData: PoolGameData & { playerScores: Record<number, number> } = {
+                winMethod: 'made_all_balls',
+                playerScores: {} // Pool doesn't track numeric scores
+              };
 
               await createMatch(db, {
                 gameType: 'pool',
