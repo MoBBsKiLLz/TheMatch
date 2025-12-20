@@ -8,10 +8,10 @@ import { Text } from '@/components/ui/text';
 import { Card } from '@/components/ui/card';
 import { Pressable } from '@/components/ui/pressable';
 import { Icon } from '@/components/ui/icon';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronRight, Users, Gamepad2, Settings, Info } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import type { Href } from 'expo-router';
+import type { LucideIcon } from 'lucide-react-native';
 
 export default function MenuTab() {
   const router = useRouter();
@@ -19,31 +19,31 @@ export default function MenuTab() {
   const menuItems: Array<{
     title: string;
     description: string;
-    icon: React.ComponentProps<typeof FontAwesome>['name'];
+    icon: LucideIcon;
     route: Href | null;
   }> = [
     {
       title: 'Players',
       description: 'Manage your players',
-      icon: 'users',
+      icon: Users,
       route: '/players',
     },
     {
       title: 'Formats & Games',
       description: 'Configure custom games',
-      icon: 'gamepad',
+      icon: Gamepad2,
       route: '/custom-games',
     },
     {
       title: 'Settings',
       description: 'App preferences',
-      icon: 'cog',
+      icon: Settings,
       route: null, // Future
     },
     {
       title: 'Help & About',
       description: 'Get help and app info',
-      icon: 'info-circle',
+      icon: Info,
       route: null, // Future
     },
   ];
@@ -65,10 +65,10 @@ export default function MenuTab() {
                   className="p-4"
                 >
                   <HStack space="md" className="items-center">
-                    <FontAwesome
-                      name={item.icon}
-                      size={24}
-                      color="#0891b2"
+                    <Icon
+                      as={item.icon}
+                      size="xl"
+                      className="text-primary-600"
                     />
                     <VStack className="flex-1">
                       <Heading size="md">{item.title}</Heading>

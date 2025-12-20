@@ -1,13 +1,13 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { Play, Building, History, Menu, Landmark, Swords } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  Icon: React.ComponentType<any>;
   color: string;
 }) {
-  return <FontAwesome size={18} style={{ marginBottom: -3 }} {...props} />;
+  return <props.Icon size={18} color={props.color} />;
 }
 
 export default function TabLayout() {
@@ -27,28 +27,28 @@ export default function TabLayout() {
         name="play"
         options={{
           title: 'Play',
-          tabBarIcon: ({ color }) => <TabBarIcon name="play" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Swords} color={color} />,
         }}
       />
       <Tabs.Screen
         name="leagues"
         options={{
           title: 'Leagues',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bank" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Landmark} color={color} />,
         }}
       />
       <Tabs.Screen
         name="history"
         options={{
           title: 'History',
-          tabBarIcon: ({ color }) => <TabBarIcon name="history" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={History} color={color} />,
         }}
       />
       <Tabs.Screen
         name="menu"
         options={{
           title: 'Menu',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bars" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Menu} color={color} />,
         }}
       />
 

@@ -123,8 +123,8 @@ describe('Tab Layout Configuration', () => {
     });
   });
 
-  it('should use FontAwesome icons for visible tabs', () => {
-    // Check that TabBarIcon is used (which uses FontAwesome)
+  it('should use Lucide icons for visible tabs', () => {
+    // Check that TabBarIcon is used (which uses Lucide icons)
     const tabBarIconPattern = /<TabBarIcon/g;
     const matches = layoutContent.match(tabBarIconPattern);
     const iconCount = matches ? matches.length : 0;
@@ -136,6 +136,9 @@ describe('Tab Layout Configuration', () => {
         `❌ Expected 4 TabBarIcon components, but found ${iconCount}`
       );
     }
+
+    // Verify Lucide icons are imported
+    expect(layoutContent).toContain('lucide-react-native');
   });
 
   it('should hide old tabs with href: null', () => {

@@ -17,7 +17,7 @@ import {
   AccordionIcon,
   AccordionContent,
 } from '@/components/ui/accordion';
-import { ChevronDownIcon, ChevronUpIcon, Trophy } from 'lucide-react-native';
+import { ChevronDownIcon, ChevronUpIcon, Calculator } from 'lucide-react-native';
 import { Icon } from '@/components/ui/icon';
 import {
   CricketNumber,
@@ -422,7 +422,7 @@ export function CricketLiveTracker({
             {/* Score Row */}
             <HStack className="bg-primary-50">
               <Box style={{ width: 60 }} className="p-3 items-center justify-center">
-                <Icon as={Trophy} size="lg" className="text-typography-700" />
+                <Icon as={Calculator} size="lg" className="text-typography-700" />
               </Box>
               {participants.map((p, idx) => (
                 <Box
