@@ -148,13 +148,13 @@ export function CricketLiveTracker({
       let pointsScored = 0;
       if (currentHits >= 3) {
         // Number was already open before this hit, so award points for the new hits
-        // Check if all opponents have NOT opened this number
-        const allOpponentsHaventOpened = newStates.every((state, idx) => {
-          if (idx === playerIndex) return true; // Skip self
+        // Check if at least one opponent has NOT opened this number (i.e., not all have opened it)
+        const atLeastOneOpponentHasntOpened = newStates.some((state, idx) => {
+          if (idx === playerIndex) return false; // Skip self
           return state.hits[targetNumber] < 3;
         });
 
-        if (allOpponentsHaventOpened) {
+        if (atLeastOneOpponentHasntOpened) {
           // Calculate points for the hits added in THIS round only
           const numberValue = targetNumber === 'bull' ? 25 : targetNumber;
           pointsScored = hitCount * numberValue;

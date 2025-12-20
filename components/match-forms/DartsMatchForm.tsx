@@ -147,7 +147,7 @@ export function DartsMatchForm({
             onPress={() => setTrackingMode('live')}
             className="flex-1"
           >
-            <ButtonText>Live Round Tracking</ButtonText>
+            <ButtonText numberOfLines={1} adjustsFontSizeToFit>Live Round Tracking</ButtonText>
           </Button>
           <Button
             action={trackingMode === 'final_only' ? 'primary' : 'secondary'}
@@ -155,7 +155,7 @@ export function DartsMatchForm({
             onPress={() => setTrackingMode('final_only')}
             className="flex-1"
           >
-            <ButtonText>Final Score Only</ButtonText>
+            <ButtonText numberOfLines={1} adjustsFontSizeToFit>Final Score Only</ButtonText>
           </Button>
         </HStack>
       </FormControl>
