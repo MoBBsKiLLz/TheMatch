@@ -336,7 +336,7 @@ export async function ensureLeagueIdNullable(db: Database): Promise<void> {
 
         const columns = Object.keys(insertData).join(', ');
         const placeholders = Object.keys(insertData).map(() => '?').join(', ');
-        const values = Object.values(insertData);
+        const values = Object.values(insertData) as (string | number | null)[];
 
         await db.run(
           `INSERT INTO matches (${columns}) VALUES (${placeholders})`,
@@ -392,7 +392,82 @@ export async function createCustomGameConfigsTable(db: Database): Promise<void> 
       `);
       logger.database('Created custom_game_configs table');
     } else {
-      logger.database('custom_game_configs table already exists');
+      // Table exists - check if it needs migration
+      logger.database('custom_game_configs table already exists, checking schema...');
+
+      const tableInfo = await db.all<{ name: string }>(
+        "PRAGMA table_info(custom_game_configs)"
+      );
+
+      const columnNames = tableInfo.map(col => col.name);
+
+      // Check if table has old schema (scoringType instead of scoringMethod)
+      const hasOldSchema = columnNames.includes('scoringType');
+      const needsMigration = hasOldSchema ||
+                            !columnNames.includes('description') ||
+                            !columnNames.includes('winCondition') ||
+                            !columnNames.includes('targetValue') ||
+                            !columnNames.includes('trackIndividualGames') ||
+                            !columnNames.includes('allowNegativeScores');
+
+      if (needsMigration) {
+        logger.database('Migrating custom_game_configs table to new schema...');
+
+        // Get existing data
+        const existingConfigs = await db.all<any>('SELECT * FROM custom_game_configs');
+
+        // Drop old table
+        await db.run('DROP TABLE IF EXISTS custom_game_configs');
+
+        // Create new table with correct schema
+        await db.run(`
+          CREATE TABLE custom_game_configs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            description TEXT,
+            scoringMethod TEXT NOT NULL CHECK (scoringMethod IN ('points', 'games_won', 'rounds')),
+            winCondition TEXT NOT NULL CHECK (winCondition IN ('target_score', 'best_of_games', 'most_points')),
+            targetValue INTEGER NOT NULL,
+            minPlayers INTEGER NOT NULL CHECK (minPlayers >= 2 AND minPlayers <= 10),
+            maxPlayers INTEGER NOT NULL CHECK (maxPlayers >= 2 AND maxPlayers <= 10),
+            trackIndividualGames INTEGER NOT NULL DEFAULT 0,
+            allowNegativeScores INTEGER NOT NULL DEFAULT 0,
+            pointsPerWin INTEGER,
+            createdAt INTEGER NOT NULL
+          )
+        `);
+
+        // Restore data with column name mapping
+        for (const config of existingConfigs) {
+          const insertData = {
+            id: config.id,
+            name: config.name,
+            description: config.description ?? null,
+            scoringMethod: config.scoringMethod ?? config.scoringType ?? 'points',
+            winCondition: config.winCondition ?? 'target_score',
+            targetValue: config.targetValue ?? 100,
+            minPlayers: config.minPlayers ?? 2,
+            maxPlayers: config.maxPlayers ?? 4,
+            trackIndividualGames: config.trackIndividualGames ?? 0,
+            allowNegativeScores: config.allowNegativeScores ?? 0,
+            pointsPerWin: config.pointsPerWin ?? null,
+            createdAt: config.createdAt,
+          };
+
+          const columns = Object.keys(insertData).join(', ');
+          const placeholders = Object.keys(insertData).map(() => '?').join(', ');
+          const values = Object.values(insertData) as (string | number | null)[];
+
+          await db.run(
+            `INSERT INTO custom_game_configs (${columns}) VALUES (${placeholders})`,
+            values
+          );
+        }
+
+        logger.database(`Migrated custom_game_configs table with ${existingConfigs.length} existing configs`);
+      } else {
+        logger.database('custom_game_configs table schema is up to date');
+      }
     }
 
     // Add customGameConfigId column to leagues table

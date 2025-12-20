@@ -31,7 +31,17 @@ export async function updateCustomGameConfig(
   id: number,
   config: Partial<Omit<CustomGameConfig, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const updates: Record<string, string | number> = { ...config };
+  const updates: Record<string, string | number> = {};
+
+  // Copy all non-boolean properties
+  if (config.name !== undefined) updates.name = config.name;
+  if (config.description !== undefined) updates.description = config.description;
+  if (config.scoringMethod !== undefined) updates.scoringMethod = config.scoringMethod;
+  if (config.winCondition !== undefined) updates.winCondition = config.winCondition;
+  if (config.targetValue !== undefined) updates.targetValue = config.targetValue;
+  if (config.minPlayers !== undefined) updates.minPlayers = config.minPlayers;
+  if (config.maxPlayers !== undefined) updates.maxPlayers = config.maxPlayers;
+  if (config.pointsPerWin !== undefined) updates.pointsPerWin = config.pointsPerWin;
 
   // Convert booleans to integers
   if (typeof config.trackIndividualGames === 'boolean') {

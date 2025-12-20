@@ -53,8 +53,8 @@ export default function TournamentsIndex() {
   const [leagues, setLeagues] = useState<League[]>([]);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedLeague, setSelectedLeague] = useState<string>("all");
-  const [selectedSeason, setSelectedSeason] = useState<string>("all");
+  const [selectedLeague, setSelectedLeague] = useState<string>("All Leagues");
+  const [selectedSeason, setSelectedSeason] = useState<string>("All Seasons");
 
   const fetchData = async () => {
     if (!db) return;
@@ -103,10 +103,10 @@ export default function TournamentsIndex() {
 
   // Filter tournaments based on selection
   const filteredTournaments = tournaments.filter((tournament) => {
-    if (selectedLeague !== "all" && tournament.leagueId !== Number(selectedLeague)) {
+    if (selectedLeague !== "All Leagues" && tournament.leagueId !== Number(selectedLeague)) {
       return false;
     }
-    if (selectedSeason !== "all" && tournament.seasonId !== Number(selectedSeason)) {
+    if (selectedSeason !== "All Seasons" && tournament.seasonId !== Number(selectedSeason)) {
       return false;
     }
     return true;
@@ -114,13 +114,13 @@ export default function TournamentsIndex() {
 
   // Filter seasons based on selected league
   const filteredSeasons = seasons.filter((season) => {
-    if (selectedLeague === "all") return true;
+    if (selectedLeague === "All Leagues") return true;
     return season.leagueId === Number(selectedLeague);
   });
 
   const handleLeagueChange = (value: string) => {
     setSelectedLeague(value);
-    setSelectedSeason("all"); // Reset season when league changes
+    setSelectedSeason("All Seasons"); // Reset season when league changes
   };
 
   const getProgressText = (tournament: TournamentWithDetails) => {
@@ -175,10 +175,10 @@ export default function TournamentsIndex() {
                     <SelectDragIndicatorWrapper>
                       <SelectDragIndicator />
                     </SelectDragIndicatorWrapper>
-                    <SelectItem label="All Leagues" value="all" />
+                    <SelectItem label="All Leagues" value="All Leagues" />
                     {leagues.map((league) => (
                       <SelectItem
-                        key={league.id}
+                        key={league.name}
                         label={league.name}
                         value={String(league.id)}
                       />
@@ -207,7 +207,7 @@ export default function TournamentsIndex() {
                     <SelectDragIndicatorWrapper>
                       <SelectDragIndicator />
                     </SelectDragIndicatorWrapper>
-                    <SelectItem label="All Seasons" value="all" />
+                    <SelectItem label="All Seasons" value="All Seasons" />
                     {filteredSeasons.map((season) => (
                       <SelectItem
                         key={season.id}

@@ -181,9 +181,14 @@ export async function getMatchesWithParticipants(
   const matchesWithParticipants: MatchWithParticipants[] = [];
 
   for (const match of matches) {
-    const participants = await db.all<
-      MatchParticipant & { firstName: string; lastName: string }
-    >(
+    // Database returns isWinner as 0 or 1, need to convert to boolean
+    type ParticipantFromDb = Omit<MatchParticipant, 'isWinner'> & {
+      isWinner: number;
+      firstName: string;
+      lastName: string;
+    };
+
+    const participants = await db.all<ParticipantFromDb>(
       `
       SELECT
         mp.*,
@@ -220,10 +225,12 @@ export async function getMatchesWithParticipants(
       }
     }
 
+    const { leagueName, ...matchData } = match;
     matchesWithParticipants.push({
-      ...match,
+      ...matchData,
       participants: participantsWithBoolean,
-      customGameName,
+      leagueName: leagueName ?? undefined,
+      customGameName: customGameName ?? undefined,
     });
   }
 
@@ -256,9 +263,14 @@ export async function getPlayerMatches(
   const matchesWithParticipants: MatchWithParticipants[] = [];
 
   for (const match of matches) {
-    const participants = await db.all<
-      MatchParticipant & { firstName: string; lastName: string }
-    >(
+    // Database returns isWinner as 0 or 1, need to convert to boolean
+    type ParticipantFromDb = Omit<MatchParticipant, 'isWinner'> & {
+      isWinner: number;
+      firstName: string;
+      lastName: string;
+    };
+
+    const participants = await db.all<ParticipantFromDb>(
       `
       SELECT
         mp.*,

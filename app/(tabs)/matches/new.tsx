@@ -661,17 +661,17 @@ export default function NewMatch() {
                 size="lg"
                 onPress={() => setShowDatePicker(true)}
                 isDisabled={isSubmitting}
-                className="justify-start"
+                className="justify-start px-4"
               >
-                <HStack className="flex-1 justify-between items-center px-3">
-                  <Text className="text-typography-900">
-                    {formatDisplayDate(matchDate)}
-                  </Text>
+                <HStack className="items-center gap-3">
                   <Icon
                     as={Calendar}
                     size="sm"
                     className="text-typography-500"
                   />
+                  <Text className="text-typography-900">
+                    {formatDisplayDate(matchDate)}
+                  </Text>
                 </HStack>
               </Button>
             </FormControl>

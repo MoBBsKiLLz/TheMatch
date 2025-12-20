@@ -271,7 +271,7 @@ export function DominosMatchForm({
             <AccordionItem value="recorded-games">
               <AccordionHeader>
                 <AccordionTrigger>
-                  {({ isExpanded }) => (
+                  {({ isExpanded }: { isExpanded: boolean }) => (
                     <>
                       <AccordionTitleText>
                         Recorded Games ({games.length})

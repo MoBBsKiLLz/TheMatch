@@ -143,10 +143,16 @@ export async function setupDatabase(db: SQLiteDatabase) {
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS custom_game_configs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      minPlayers INTEGER NOT NULL DEFAULT 2,
-      maxPlayers INTEGER NOT NULL DEFAULT 4,
-      scoringType TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      scoringMethod TEXT NOT NULL CHECK (scoringMethod IN ('points', 'games_won', 'rounds')),
+      winCondition TEXT NOT NULL CHECK (winCondition IN ('target_score', 'best_of_games', 'most_points')),
+      targetValue INTEGER NOT NULL,
+      minPlayers INTEGER NOT NULL CHECK (minPlayers >= 2 AND minPlayers <= 10),
+      maxPlayers INTEGER NOT NULL CHECK (maxPlayers >= 2 AND maxPlayers <= 10),
+      trackIndividualGames INTEGER NOT NULL DEFAULT 0,
+      allowNegativeScores INTEGER NOT NULL DEFAULT 0,
+      pointsPerWin INTEGER,
       createdAt INTEGER NOT NULL
     );
   `);

@@ -1,16 +1,19 @@
 import {Database} from "./client";
 
 // Whitelist of allowed table names to prevent SQL injection
+// IMPORTANT: This list must match ALL tables defined in schema.ts
 const ALLOWED_TABLES = [
-    'players',
-    'leagues',
-    'seasons',
-    'matches',
-    'match_participants',
-    'player_leagues',
-    'player_season_weeks',
     'custom_game_configs',
     'custom_game_fields',
+    'leagues',
+    'match_participants',
+    'matches',
+    'player_leagues',
+    'players',
+    'seasons',
+    'tournament_matches',
+    'tournaments',
+    'week_attendance',
 ] as const;
 
 type AllowedTable = typeof ALLOWED_TABLES[number];
@@ -86,7 +89,8 @@ export async function findById<T>(
     id: number
 ): Promise<T | null> {
     validateTableName(table);
-    return db.get<T>(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+    const result = await db.get<T>(`SELECT * FROM ${table} WHERE id = ?`, [id]);
+    return result ?? null;
 }
 
 export async function findAll<T>(

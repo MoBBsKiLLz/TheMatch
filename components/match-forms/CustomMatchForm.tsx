@@ -341,7 +341,7 @@ export function CustomMatchForm({
             <AccordionItem value="recorded-games">
               <AccordionHeader>
                 <AccordionTrigger>
-                  {({ isExpanded }) => (
+                  {({ isExpanded }: { isExpanded: boolean }) => (
                     <>
                       <AccordionTitleText>
                         Recorded {config.scoringMethod === 'games_won' ? 'Games' : config.scoringMethod === 'rounds' ? 'Rounds' : 'Games'} ({games.length})

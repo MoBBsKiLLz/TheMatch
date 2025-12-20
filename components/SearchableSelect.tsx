@@ -67,19 +67,11 @@ export function SearchableSelect({
     return selected?.label || '';
   }, [options, selectedValue]);
 
-  // Reset search when closing
-  const handleOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      setSearchQuery('');
-    }
-  };
-
   return (
     <Select
       selectedValue={selectedValue}
       onValueChange={onValueChange}
       isDisabled={isDisabled}
-      onOpenChange={handleOpenChange}
     >
       <SelectTrigger variant={variant} size={size} className={className}>
         <SelectInput

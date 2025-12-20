@@ -53,7 +53,9 @@ export default function LeagueDetails() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [activeSeason, setActiveSeason] = useState<Season | null>(null);
   const [allSeasons, setAllSeasons] = useState<Season[]>([]);
-  const [tournaments, setTournaments] = useState<{ [seasonId: number]: Tournament }>({});
+  const [tournaments, setTournaments] = useState<{
+    [seasonId: number]: Tournament;
+  }>({});
 
   const fetchLeague = async () => {
     if (!db || !id) return;
@@ -73,7 +75,11 @@ export default function LeagueDetails() {
 
       // Fetch leaderboard with tie resolution (season-specific if there's an active season)
       const seasonIdForStandings = active?.id;
-      const standings = await getLeagueLeaderboard(db, Number(id), seasonIdForStandings);
+      const standings = await getLeagueLeaderboard(
+        db,
+        Number(id),
+        seasonIdForStandings
+      );
       const resolvedStandings = await resolveLeaderboardTies(
         db,
         Number(id),
@@ -87,7 +93,7 @@ export default function LeagueDetails() {
 
       // Fetch tournaments for each completed season
       const tournamentMap: { [seasonId: number]: Tournament } = {};
-      for (const season of seasons.filter(s => s.status === 'completed')) {
+      for (const season of seasons.filter((s) => s.status === "completed")) {
         const tournament = await getSeasonTournament(db, season.id);
         if (tournament) {
           tournamentMap[season.id] = tournament;
@@ -179,7 +185,10 @@ export default function LeagueDetails() {
       );
 
       if (resolvedStandings.length < 2) {
-        Alert.alert("Not Enough Players", "You need at least 2 players to start a tournament.");
+        Alert.alert(
+          "Not Enough Players",
+          "You need at least 2 players to start a tournament."
+        );
         return;
       }
 
@@ -188,7 +197,7 @@ export default function LeagueDetails() {
         seasonId: season.id,
         leagueId: Number(id),
         name: `${season.name} Tournament`,
-        format: 'best-of-3',
+        format: "best-of-3",
         seededPlayers: resolvedStandings,
       });
 
@@ -271,9 +280,13 @@ export default function LeagueDetails() {
                   Format
                 </Text>
                 <Text size="md" className="text-typography-900">
-                  {league.format === 'round-robin' ? 'Round Robin' :
-                   league.format === 'swiss' ? 'Swiss' :
-                   league.format === 'ladder' ? 'Ladder' : 'Custom'}
+                  {league.format === "round-robin"
+                    ? "Round Robin"
+                    : league.format === "swiss"
+                    ? "Swiss"
+                    : league.format === "ladder"
+                    ? "Ladder"
+                    : "Custom"}
                 </Text>
               </VStack>
 
@@ -377,8 +390,16 @@ export default function LeagueDetails() {
                     .map((season) => {
                       const hasTournament = tournaments[season.id];
                       return (
-                        <Card key={season.id} size="sm" variant="outline" className="p-3">
-                          <HStack className="justify-between items-center" space="md">
+                        <Card
+                          key={season.id}
+                          size="sm"
+                          variant="outline"
+                          className="p-3"
+                        >
+                          <HStack
+                            className="justify-between items-center"
+                            space="md"
+                          >
                             <Pressable
                               className="flex-1"
                               onPress={() =>
@@ -397,27 +418,36 @@ export default function LeagueDetails() {
                               </VStack>
                             </Pressable>
                             <HStack space="xs">
-                              {season.status === 'completed' && !hasTournament && (
-                                <Button
-                                  size="xs"
-                                  action="primary"
-                                  onPress={() => handleStartTournament(season)}
-                                >
-                                  <Icon as={Rocket} size="xs" className="text-white mr-1" />
-                                  <ButtonText>Tournament</ButtonText>
-                                </Button>
-                              )}
-                              <Pressable
+                              {season.status === "completed" &&
+                                !hasTournament && (
+                                  <Button
+                                    size="xs"
+                                    action="primary"
+                                    onPress={() =>
+                                      handleStartTournament(season)
+                                    }
+                                  >
+                                    <Icon
+                                      as={Rocket}
+                                      size="xs"
+                                      className="text-white mr-1"
+                                    />
+                                    <ButtonText>Tournament</ButtonText>
+                                  </Button>
+                                )}
+
+                              <Button
+                                size="xs"
+                                variant="outline"
+                                action="secondary"
                                 onPress={() =>
                                   router.push(
                                     `/leagues/${id}/seasons/${season.id}` as Href
                                   )
                                 }
                               >
-                                <Badge size="sm" variant="outline" action="muted">
-                                  <BadgeText>View</BadgeText>
-                                </Badge>
-                              </Pressable>
+                                <ButtonText>View</ButtonText>
+                              </Button>
                             </HStack>
                           </HStack>
                         </Card>

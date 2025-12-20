@@ -3,6 +3,12 @@ import { GameData } from '@/types/games';
 import { MatchParticipant } from '@/types/match';
 import { CreateMatchParticipant } from '@/lib/db/matches';
 
+// Match participant with player details for display
+export type MatchParticipantWithPlayer = MatchParticipant & {
+  firstName: string;
+  lastName: string;
+};
+
 export interface GameConfig {
   type: GameType;
   name: string;
@@ -17,8 +23,8 @@ export interface GameConfig {
   // Scoring logic - returns array of winner playerIds
   determineWinners: (participants: MatchParticipant[]) => number[];
 
-  // UI metadata
-  getMatchDisplayText: (participants: MatchParticipant[]) => string;
+  // UI metadata - participants include player names for display
+  getMatchDisplayText: (participants: MatchParticipantWithPlayer[]) => string;
   getVariantDisplayName: (variant: string) => string;
 }
 

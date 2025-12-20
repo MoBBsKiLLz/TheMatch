@@ -45,6 +45,8 @@ export const poolConfig: GameConfig = {
   },
 
   getVariantDisplayName: (variant) => {
-    return variant === '8-ball' ? '8-Ball' : '9-Ball';
+    if (variant === '8-ball') return '8-Ball';
+    if (variant === '9-ball') return '9-Ball';
+    return variant;
   },
 };
