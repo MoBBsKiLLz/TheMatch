@@ -13,6 +13,8 @@ export type Match = {
   status: 'in_progress' | 'completed';
   gameVariant?: string | null;
   gameData?: string | null;     // JSON string
+  quickEntryMode?: number;      // 0 or 1, for winner-only mode
+  seriesId?: number | null;     // Link to series for grouped matches
   createdAt: number;
 };
 

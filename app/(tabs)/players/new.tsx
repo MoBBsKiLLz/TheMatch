@@ -91,17 +91,37 @@ export default function NewPlayer() {
     Keyboard.dismiss();
 
     try {
+        // Check for duplicate player name (case-insensitive)
+        const trimmedFirst = firstName.trim();
+        const trimmedLast = lastName.trim();
+
+        const existingPlayers = await db.all<{id: number}>(
+            'SELECT id FROM players WHERE LOWER(firstName) = LOWER(?) AND LOWER(lastName) = LOWER(?)',
+            [trimmedFirst, trimmedLast]
+        );
+
+        // If editing, exclude current player from duplicate check
+        const duplicateExists = isEditMode
+            ? existingPlayers.some(p => p.id !== Number(id))
+            : existingPlayers.length > 0;
+
+        if (duplicateExists) {
+            setErrors({general: `A player named ${trimmedFirst} ${trimmedLast} already exists.`});
+            setIsSubmitting(false);
+            return;
+        }
+
         if (isEditMode) {
             // Update existing player
             await update(db, "players", Number(id), {
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
+                firstName: trimmedFirst,
+                lastName: trimmedLast,
             });
         } else {
             // Create new player
             await insert(db, "players", {
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
+                firstName: trimmedFirst,
+                lastName: trimmedLast,
                 createdAt: Date.now(),
             });
         }

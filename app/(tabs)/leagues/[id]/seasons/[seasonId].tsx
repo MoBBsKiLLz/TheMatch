@@ -18,7 +18,8 @@ import {
   CheckboxIcon,
   CheckboxLabel,
 } from "@/components/ui/checkbox";
-import { CheckIcon, Search } from "lucide-react-native";
+import { CheckIcon, Search, InfoIcon } from "lucide-react-native";
+import { Icon } from "@/components/ui/icon";
 import { Input, InputField, InputSlot, InputIcon } from "@/components/ui/input";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
@@ -414,12 +415,6 @@ export default function SeasonDetail() {
           },
         },
       ]
-    );
-  };
-
-  const handleRecordMatch = (match: OwedMatch, isMakeup: boolean = false) => {
-    router.push(
-      `/matches/new?leagueId=${id}&seasonId=${seasonId}&weekNumber=${match.weekNumber}&playerAId=${match.playerId}&playerBId=${match.opponentId}&isMakeup=${isMakeup ? 1 : 0}&timestamp=${Date.now()}` as Href
     );
   };
 
@@ -856,6 +851,32 @@ export default function SeasonDetail() {
 
               <Divider />
             </>
+          )}
+
+          {/* Non-Round-Robin Format Guidance */}
+          {league.format !== "round-robin" && season.status === "active" && (
+            <Card size="md" variant="outline" className="p-4 bg-background-100">
+              <VStack space="md">
+                <HStack space="sm" className="items-center">
+                  <Icon as={InfoIcon} size="lg" className="text-info-500" />
+                  <Heading size="md" className="text-typography-800">
+                    {league.format === "swiss" ? "Swiss Format" : league.format === "ladder" ? "Ladder Format" : "Custom Format"}
+                  </Heading>
+                </HStack>
+                <Text className="text-typography-600">
+                  {league.format === "swiss"
+                    ? "Swiss format doesn't use scheduled matches. Record matches manually by scrolling down to 'Record Match' section. Players are paired based on performance."
+                    : league.format === "ladder"
+                    ? "Ladder format is flexible. Record matches manually below as players challenge each other. Rankings update based on results."
+                    : "This format uses custom match scheduling. Record matches manually using the 'Record Match' section below."}
+                </Text>
+                {leaguePlayers.length < 2 && (
+                  <Text className="text-error-600">
+                    ⚠️ Add at least 2 players to this league to start recording matches.
+                  </Text>
+                )}
+              </VStack>
+            </Card>
           )}
 
           {/* Actions */}

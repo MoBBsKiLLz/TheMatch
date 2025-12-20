@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
+import { Button, ButtonText } from '@/components/ui/button';
 import {
   FormControl,
   FormControlLabel,
@@ -20,6 +22,7 @@ import {
   SelectDragIndicator,
   SelectItem,
 } from '@/components/ui/select';
+import { Divider } from '@/components/ui/divider';
 import { ChevronDownIcon } from 'lucide-react-native';
 import {
   DartsGameData,
@@ -28,12 +31,15 @@ import {
   DartsCricketType,
 } from '@/types/games';
 import { ParticipantInfo } from './types';
+import { CricketLiveTracker } from './darts/CricketLiveTracker';
+import { X01LiveTracker } from './darts/X01LiveTracker';
 
 interface DartsMatchFormProps {
   variant: string;
   onVariantChange: (variant: string) => void;
   participants: ParticipantInfo[];
   onDataChange: (data: DartsGameData) => void;
+  onWinnersChange?: (winnerPlayerIds: number[]) => void;
 }
 
 export function DartsMatchForm({
@@ -41,16 +47,20 @@ export function DartsMatchForm({
   onVariantChange,
   participants,
   onDataChange,
+  onWinnersChange,
 }: DartsMatchFormProps) {
   const isX01 = ['901', '701', '501', '401', '301'].includes(variant);
   const isCricket = variant === 'cricket';
 
-  // X01 state - array of scores indexed by seatIndex
+  // Tracking mode state
+  const [trackingMode, setTrackingMode] = useState<'live' | 'final_only'>('final_only');
+
+  // X01 state - array of scores indexed by seatIndex (for final_only mode)
   const [scores, setScores] = useState<number[]>(
     participants.map(() => 0)
   );
 
-  // Cricket state
+  // Cricket state (for final_only mode)
   const [points, setPoints] = useState<number[]>(
     participants.map(() => 0)
   );
@@ -62,19 +72,22 @@ export function DartsMatchForm({
     setPoints(participants.map(() => 0));
   }, [participants.length]);
 
+  // Update parent with final_only data
   useEffect(() => {
-    if (isX01) {
-      onDataChange({
-        scores,
-        startingScore: parseInt(variant),
-      } as DartsX01GameData);
-    } else if (isCricket) {
-      onDataChange({
-        points,
-        cricketType,
-      } as DartsCricketGameData);
+    if (trackingMode === 'final_only') {
+      if (isX01) {
+        onDataChange({
+          scores,
+          startingScore: parseInt(variant),
+        } as DartsX01GameData);
+      } else if (isCricket) {
+        onDataChange({
+          points,
+          cricketType,
+        } as DartsCricketGameData);
+      }
     }
-  }, [scores, points, cricketType, variant]);
+  }, [scores, points, cricketType, variant, trackingMode]);
 
   const updateScore = (index: number, value: number) => {
     const newScores = [...scores];
@@ -120,7 +133,92 @@ export function DartsMatchForm({
         </Select>
       </FormControl>
 
-      {isX01 && (
+      <Divider />
+
+      {/* Tracking Mode Toggle */}
+      <FormControl>
+        <FormControlLabel>
+          <FormControlLabelText>Scoring Mode</FormControlLabelText>
+        </FormControlLabel>
+        <HStack space="sm">
+          <Button
+            action={trackingMode === 'live' ? 'primary' : 'secondary'}
+            variant={trackingMode === 'live' ? 'solid' : 'outline'}
+            onPress={() => setTrackingMode('live')}
+            className="flex-1"
+          >
+            <ButtonText>Live Round Tracking</ButtonText>
+          </Button>
+          <Button
+            action={trackingMode === 'final_only' ? 'primary' : 'secondary'}
+            variant={trackingMode === 'final_only' ? 'solid' : 'outline'}
+            onPress={() => setTrackingMode('final_only')}
+            className="flex-1"
+          >
+            <ButtonText>Final Score Only</ButtonText>
+          </Button>
+        </HStack>
+      </FormControl>
+
+      <Divider />
+
+      {/* Live Tracking Components */}
+      {trackingMode === 'live' && isX01 && (
+        <X01LiveTracker
+          participants={participants}
+          startingScore={parseInt(variant)}
+          onDataChange={onDataChange}
+          onWinnersChange={onWinnersChange}
+        />
+      )}
+
+      {trackingMode === 'live' && isCricket && (
+        <>
+          <FormControl>
+            <FormControlLabel>
+              <FormControlLabelText>Cricket Type</FormControlLabelText>
+            </FormControlLabel>
+            <Select
+              selectedValue={cricketType}
+              onValueChange={(v) => setCricketType(v as DartsCricketType)}
+            >
+              <SelectTrigger variant="outline" size="lg">
+                <SelectInput
+                  placeholder="Select type"
+                  value={cricketType === 'standard' ? 'Standard' : 'Cut-throat'}
+                  className="flex-1"
+                />
+                <SelectIcon as={ChevronDownIcon} className="ml-auto mr-3" />
+              </SelectTrigger>
+              <SelectPortal>
+                <SelectBackdrop />
+                <SelectContent>
+                  <SelectDragIndicatorWrapper>
+                    <SelectDragIndicator />
+                  </SelectDragIndicatorWrapper>
+                  <SelectItem label="Standard" value="standard" />
+                  <SelectItem label="Cut-throat" value="cut-throat" />
+                </SelectContent>
+              </SelectPortal>
+            </Select>
+            <Text size="xs" className="text-typography-400 mt-1">
+              {cricketType === 'standard'
+                ? 'Most points wins'
+                : 'Least points wins'}
+            </Text>
+          </FormControl>
+
+          <CricketLiveTracker
+            participants={participants}
+            cricketType={cricketType}
+            onDataChange={onDataChange}
+            onWinnersChange={onWinnersChange}
+          />
+        </>
+      )}
+
+      {/* Final Only Mode - Existing Forms */}
+      {trackingMode === 'final_only' && isX01 && (
         <>
           <Heading size="sm">Final Scores</Heading>
           <Text size="xs" className="text-typography-500">
@@ -147,7 +245,7 @@ export function DartsMatchForm({
         </>
       )}
 
-      {isCricket && (
+      {trackingMode === 'final_only' && isCricket && (
         <>
           <FormControl>
             <FormControlLabel>

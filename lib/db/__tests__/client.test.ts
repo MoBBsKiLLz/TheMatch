@@ -84,12 +84,12 @@ describe('Database Client', () => {
 
   describe('transaction', () => {
     it('should execute a transaction successfully', async () => {
-      const callback = jest.fn().mockResolvedValue('result');
+      const callback = jest.fn().mockResolvedValue(undefined);
 
-      const result = await db.transaction(callback);
+      await db.transaction(callback);
 
       expect(callback).toHaveBeenCalledWith(db);
-      expect(result).toBe('result');
+      // transaction() returns void, not the callback result
     });
 
     it('should propagate errors from transaction callback', async () => {

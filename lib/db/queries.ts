@@ -11,6 +11,7 @@ const ALLOWED_TABLES = [
     'player_leagues',
     'players',
     'seasons',
+    'series',
     'tournament_matches',
     'tournaments',
     'week_attendance',

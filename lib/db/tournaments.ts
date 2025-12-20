@@ -272,3 +272,26 @@ export async function getSeasonTournament(
     [seasonId]
   );
 }
+
+export type TournamentWithNames = Tournament & {
+  leagueName: string;
+  seasonName: string;
+};
+
+/**
+ * Get all completed tournaments with league and season names
+ */
+export async function getCompletedTournaments(
+  db: Database
+): Promise<TournamentWithNames[]> {
+  const query = `
+    SELECT t.*, l.name as leagueName, s.name as seasonName
+    FROM tournaments t
+    INNER JOIN seasons s ON t.seasonId = s.id
+    INNER JOIN leagues l ON t.leagueId = l.id
+    WHERE t.status = 'completed'
+    ORDER BY t.createdAt DESC
+  `;
+
+  return await db.all<TournamentWithNames>(query);
+}

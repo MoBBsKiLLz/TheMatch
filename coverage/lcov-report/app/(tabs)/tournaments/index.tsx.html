@@ -688,8 +688,8 @@ export default function <span class="fstat-no" title="function not covered" >Tou
   const [leagues, setLeagues] = <span class="cstat-no" title="statement not covered" >useState&lt;League[]&gt;([]);</span>
   const [seasons, setSeasons] = <span class="cstat-no" title="statement not covered" >useState&lt;Season[]&gt;([]);</span>
   const [isLoading, setIsLoading] = <span class="cstat-no" title="statement not covered" >useState(true);</span>
-  const [selectedLeague, setSelectedLeague] = <span class="cstat-no" title="statement not covered" >useState&lt;string&gt;("all");</span>
-  const [selectedSeason, setSelectedSeason] = <span class="cstat-no" title="statement not covered" >useState&lt;string&gt;("all");</span>
+  const [selectedLeague, setSelectedLeague] = <span class="cstat-no" title="statement not covered" >useState&lt;string&gt;("All Leagues");</span>
+  const [selectedSeason, setSelectedSeason] = <span class="cstat-no" title="statement not covered" >useState&lt;string&gt;("All Seasons");</span>
 &nbsp;
   const fetchData = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >as</span>ync () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!db) <span class="cstat-no" title="statement not covered" >return;</span></span>
@@ -738,10 +738,10 @@ export default function <span class="fstat-no" title="function not covered" >Tou
 &nbsp;
   // Filter tournaments based on selection
   const filteredTournaments = <span class="cstat-no" title="statement not covered" >tournaments.filter(<span class="fstat-no" title="function not covered" >(t</span>ournament) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (selectedLeague !== "all" &amp;&amp; tournament.leagueId !== Number(selectedLeague)) {</span>
+<span class="cstat-no" title="statement not covered" >    if (selectedLeague !== "All Leagues" &amp;&amp; tournament.leagueId !== Number(selectedLeague)) {</span>
 <span class="cstat-no" title="statement not covered" >      return false;</span>
     }
-<span class="cstat-no" title="statement not covered" >    if (selectedSeason !== "all" &amp;&amp; tournament.seasonId !== Number(selectedSeason)) {</span>
+<span class="cstat-no" title="statement not covered" >    if (selectedSeason !== "All Seasons" &amp;&amp; tournament.seasonId !== Number(selectedSeason)) {</span>
 <span class="cstat-no" title="statement not covered" >      return false;</span>
     }
 <span class="cstat-no" title="statement not covered" >    return true;</span>
@@ -749,13 +749,13 @@ export default function <span class="fstat-no" title="function not covered" >Tou
 &nbsp;
   // Filter seasons based on selected league
   const filteredSeasons = <span class="cstat-no" title="statement not covered" >seasons.filter(<span class="fstat-no" title="function not covered" >(s</span>eason) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    if (selectedLeague === "all") <span class="cstat-no" title="statement not covered" >return true;</span></span>
+<span class="cstat-no" title="statement not covered" >    if (selectedLeague === "All Leagues") <span class="cstat-no" title="statement not covered" >return true;</span></span>
 <span class="cstat-no" title="statement not covered" >    return season.leagueId === Number(selectedLeague);</span>
   });
 &nbsp;
   const handleLeagueChange = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(v</span>alue: string) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    setSelectedLeague(value);</span>
-<span class="cstat-no" title="statement not covered" >    setSelectedSeason("all"); </span>// Reset season when league changes
+<span class="cstat-no" title="statement not covered" >    setSelectedSeason("All Seasons"); </span>// Reset season when league changes
   };
 &nbsp;
   const getProgressText = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(t</span>ournament: TournamentWithDetails) =&gt; {</span>
@@ -810,10 +810,10 @@ export default function <span class="fstat-no" title="function not covered" >Tou
                     &lt;SelectDragIndicatorWrapper&gt;
                       &lt;SelectDragIndicator /&gt;
                     &lt;/SelectDragIndicatorWrapper&gt;
-                    &lt;SelectItem label="All Leagues" value="all" /&gt;
+                    &lt;SelectItem label="All Leagues" value="All Leagues" /&gt;
                     {leagues.map(<span class="fstat-no" title="function not covered" >(l</span>eague) =&gt; (
 <span class="cstat-no" title="statement not covered" >                      &lt;SelectItem</span>
-                        key={league.id}
+                        key={league.name}
                         label={league.name}
                         value={String(league.id)}
                       /&gt;
@@ -842,7 +842,7 @@ export default function <span class="fstat-no" title="function not covered" >Tou
                     &lt;SelectDragIndicatorWrapper&gt;
                       &lt;SelectDragIndicator /&gt;
                     &lt;/SelectDragIndicatorWrapper&gt;
-                    &lt;SelectItem label="All Seasons" value="all" /&gt;
+                    &lt;SelectItem label="All Seasons" value="All Seasons" /&gt;
                     {filteredSeasons.map(<span class="fstat-no" title="function not covered" >(s</span>eason) =&gt; (
 <span class="cstat-no" title="statement not covered" >                      &lt;SelectItem</span>
                         key={season.id}
@@ -925,7 +925,7 @@ export default function <span class="fstat-no" title="function not covered" >Tou
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2025-12-20T00:26:42.928Z
+                at 2025-12-20T06:21:41.545Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

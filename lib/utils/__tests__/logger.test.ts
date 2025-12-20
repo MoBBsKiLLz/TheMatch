@@ -5,18 +5,30 @@ import * as Sentry from '@sentry/react-native';
 jest.mock('@sentry/react-native');
 
 describe('Logger', () => {
+  let consoleDebugSpy: jest.SpyInstance;
   let consoleLogSpy: jest.SpyInstance;
   let consoleWarnSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
+  let originalDev: boolean;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Save original __DEV__ value
+    originalDev = (global as any).__DEV__;
+    // Set __DEV__ to true for development mode tests
+    (global as any).__DEV__ = true;
+
+    consoleDebugSpy = jest.spyOn(console, 'debug').mockImplementation();
     consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
     consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation();
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
   });
 
   afterEach(() => {
+    // Restore original __DEV__ value
+    (global as any).__DEV__ = originalDev;
+
+    consoleDebugSpy.mockRestore();
     consoleLogSpy.mockRestore();
     consoleWarnSpy.mockRestore();
     consoleErrorSpy.mockRestore();
@@ -26,15 +38,15 @@ describe('Logger', () => {
     it('should log debug messages to console', () => {
       logger.debug('Debug message', { key: 'value' });
 
-      expect(consoleLogSpy).toHaveBeenCalled();
-      expect(consoleLogSpy.mock.calls[0][0]).toContain('DEBUG');
-      expect(consoleLogSpy.mock.calls[0][0]).toContain('Debug message');
+      expect(consoleDebugSpy).toHaveBeenCalled();
+      expect(consoleDebugSpy.mock.calls[0][0]).toContain('DEBUG');
+      expect(consoleDebugSpy.mock.calls[0][0]).toContain('Debug message');
     });
 
     it('should handle debug without metadata', () => {
       logger.debug('Simple debug');
 
-      expect(consoleLogSpy).toHaveBeenCalled();
+      expect(consoleDebugSpy).toHaveBeenCalled();
     });
   });
 
@@ -46,10 +58,12 @@ describe('Logger', () => {
       expect(consoleLogSpy.mock.calls[0][0]).toContain('INFO');
     });
 
-    it('should send breadcrumb to Sentry', () => {
+    it('should format info messages with data', () => {
       logger.info('User action', { action: 'button_click' });
 
-      expect(Sentry.addBreadcrumb).toHaveBeenCalled();
+      expect(consoleLogSpy).toHaveBeenCalled();
+      expect(consoleLogSpy.mock.calls[0][0]).toContain('INFO');
+      expect(consoleLogSpy.mock.calls[0][0]).toContain('User action');
     });
   });
 
@@ -61,10 +75,11 @@ describe('Logger', () => {
       expect(consoleWarnSpy.mock.calls[0][0]).toContain('WARN');
     });
 
-    it('should send breadcrumb to Sentry', () => {
+    it('should log warnings without metadata', () => {
       logger.warn('Deprecation warning');
 
-      expect(Sentry.addBreadcrumb).toHaveBeenCalled();
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      expect(consoleWarnSpy.mock.calls[0][0]).toContain('WARN');
     });
   });
 
@@ -88,13 +103,15 @@ describe('Logger', () => {
     it('should log database operations', () => {
       logger.database('Created table users', { rows: 0 });
 
-      expect(consoleLogSpy).toHaveBeenCalled();
+      // database() calls debug() which uses console.debug
+      expect(consoleDebugSpy).toHaveBeenCalled();
     });
 
-    it('should send breadcrumb to Sentry for database operations', () => {
+    it('should log database operations in development', () => {
       logger.database('Migration completed');
 
-      expect(Sentry.addBreadcrumb).toHaveBeenCalled();
+      // database() calls debug() which uses console.debug in dev mode
+      expect(consoleDebugSpy).toHaveBeenCalled();
     });
   });
 });

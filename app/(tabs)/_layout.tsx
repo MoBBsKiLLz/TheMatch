@@ -22,18 +22,12 @@ export default function TabLayout() {
         lazy: false,
       }}
     >
+      {/* NEW TABS */}
       <Tabs.Screen
-        name="players"
+        name="play"
         options={{
-          title: 'Players',
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="custom-games"
-        options={{
-          title: 'Games',
-          tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,
+          title: 'Play',
+          tabBarIcon: ({ color }) => <TabBarIcon name="play" color={color} />,
         }}
       />
       <Tabs.Screen
@@ -44,18 +38,36 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="matches"
+        name="history"
         options={{
-          title: 'Matches',
-          tabBarIcon: ({ color }) => <TabBarIcon name="handshake-o" color={color} />,
+          title: 'History',
+          tabBarIcon: ({ color }) => <TabBarIcon name="history" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="tournaments"
+        name="menu"
         options={{
-          title: 'Tournaments',
-          tabBarIcon: ({ color }) => <TabBarIcon name="trophy" color={color} />,
+          title: 'Menu',
+          tabBarIcon: ({ color }) => <TabBarIcon name="bars" color={color} />,
         }}
+      />
+
+      {/* HIDDEN ROUTES - Still accessible via router.push() */}
+      <Tabs.Screen
+        name="players"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="custom-games"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="matches"
+        options={{ href: null }}
+      />
+      <Tabs.Screen
+        name="series"
+        options={{ href: null }}
       />
     </Tabs>
   );

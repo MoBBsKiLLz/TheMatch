@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Keyboard, Platform } from "react-native";
+import { Keyboard, Platform, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "@/components/ui/scroll-view";
 import { VStack } from "@/components/ui/vstack";
@@ -17,7 +17,7 @@ import {
 import { Input, InputField } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, Href } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { findById } from "@/lib/db/queries";
 import { createSeason, updateSeason } from "@/lib/db/seasons";
@@ -126,6 +126,7 @@ export default function NewSeason() {
           startDate,
           weeksDuration,
         });
+        router.back();
       } else {
         // Create new season
         await createSeason(db, {
@@ -134,9 +135,29 @@ export default function NewSeason() {
           startDate,
           weeksDuration,
         });
-      }
 
-      router.back();
+        // Check player count after creating season and show helpful guidance
+        const playerCount = await db.get<{count: number}>(
+          'SELECT COUNT(*) as count FROM player_leagues WHERE leagueId = ?',
+          [Number(id)]
+        );
+
+        if ((playerCount?.count || 0) < 2) {
+          Alert.alert(
+            "Season Created",
+            `Season "${name.trim()}" has been created, but you currently have ${playerCount?.count || 0} player(s) in this league.\n\nYou'll need to add at least 2 players before you can start recording matches or generating schedules.\n\nWould you like to add players now?`,
+            [
+              { text: "Add Players", onPress: () => {
+                router.back();
+                router.push(`/leagues/${id}/add-players` as Href);
+              }},
+              { text: "Later", style: "cancel", onPress: () => router.back() }
+            ]
+          );
+        } else {
+          router.back();
+        }
+      }
     } catch (err) {
       console.error(`Failed to ${isEditMode ? 'update' : 'create'} season:`, err);
       setError(`Failed to ${isEditMode ? 'update' : 'create'} season. Please try again.`);

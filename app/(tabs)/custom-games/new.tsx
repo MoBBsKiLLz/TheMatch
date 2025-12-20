@@ -139,8 +139,29 @@ export default function NewCustomGame() {
     Keyboard.dismiss();
 
     try {
+      // Check for duplicate game name (case-insensitive)
+      const trimmedName = name.trim();
+      const existingGames = await db.all<{id: number}>(
+        'SELECT id FROM custom_game_configs WHERE LOWER(name) = LOWER(?)',
+        [trimmedName]
+      );
+
+      // If editing, exclude current game from duplicate check
+      const duplicateExists = isEditing
+        ? existingGames.some(g => g.id !== Number(id))
+        : existingGames.length > 0;
+
+      if (duplicateExists) {
+        Alert.alert(
+          "Duplicate Name",
+          `A custom game named "${trimmedName}" already exists. Please choose a different name.`
+        );
+        setIsSubmitting(false);
+        return;
+      }
+
       const configData = {
-        name: name.trim(),
+        name: trimmedName,
         description: description.trim() || undefined,
         scoringMethod,
         winCondition,
