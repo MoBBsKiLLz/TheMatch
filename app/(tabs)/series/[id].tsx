@@ -19,6 +19,7 @@ import { getSeriesById, getSeriesStandings, getSeriesMatches, completeSeries, de
 import { Series, SeriesStanding } from '@/types/series';
 import { MatchWithParticipants } from '@/types/match';
 import { logger } from '@/lib/utils/logger';
+import { formatGameType, capitalize, formatPersonName } from '@/lib/utils/text';
 
 export default function SeriesDetail() {
   const { db } = useDatabase();
@@ -154,7 +155,7 @@ export default function SeriesDetail() {
 
             <HStack space="md">
               <Text size="sm" className="text-typography-500">
-                {series.gameType.charAt(0).toUpperCase() + series.gameType.slice(1)}
+                {formatGameType(series.gameType)}
               </Text>
               <Text size="sm" className="text-typography-500">
                 Started {new Date(series.startDate).toLocaleDateString()}
@@ -274,13 +275,13 @@ export default function SeriesDetail() {
                         <VStack space="xs">
                           <HStack className="justify-between items-start">
                             <VStack className="flex-1">
-                              <Text className="font-semibold capitalize">
-                                {match.gameType}
-                                {match.gameVariant && ` - ${match.gameVariant}`}
+                              <Text className="font-semibold">
+                                {formatGameType(match.gameType)}
+                                {match.gameVariant && ` - ${capitalize(match.gameVariant)}`}
                               </Text>
                               {winner && (
                                 <Text size="sm" className="text-success-600">
-                                  Winner: {winner.firstName} {winner.lastName}
+                                  Winner: {formatPersonName(winner.firstName, winner.lastName)}
                                 </Text>
                               )}
                             </VStack>

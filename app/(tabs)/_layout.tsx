@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Building, History, Menu, Landmark, Swords } from 'lucide-react-native';
+import { History, Menu, Landmark, Swords } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
@@ -55,19 +55,19 @@ export default function TabLayout() {
       {/* HIDDEN ROUTES - Still accessible via router.push() */}
       <Tabs.Screen
         name="players"
-        options={{ href: null }}
+        options={{ href: null, title: 'Players' }}
       />
       <Tabs.Screen
         name="custom-games"
-        options={{ href: null }}
+        options={{ href: null, title: 'Custom Games' }}
       />
       <Tabs.Screen
         name="matches"
-        options={{ href: null }}
+        options={{ href: null, title: 'Matches' }}
       />
       <Tabs.Screen
         name="series"
-        options={{ href: null }}
+        options={{ href: null, title: 'Series' }}
       />
     </Tabs>
   );

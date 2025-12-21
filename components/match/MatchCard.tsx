@@ -5,7 +5,9 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Badge, BadgeText } from '@/components/ui/badge';
+import { Pressable } from '@/components/ui/pressable';
 import { MatchWithDetails } from '@/types/match';
+import { formatGameType, formatPersonName } from '@/lib/utils/text';
 
 interface MatchCardProps {
   match: MatchWithDetails;
@@ -26,24 +28,28 @@ const getMatchResult = (match: MatchWithDetails) => {
   const winners = match.participants.filter((p) => p.isWinner);
 
   if (winners.length === 0) {
-    return 'No winner recorded';
+    return 'No Winner Recorded';
   }
 
   if (winners.length === 1) {
     const winner = winners[0];
-    return `${winner.firstName} ${winner.lastName} won`;
+    return `${formatPersonName(winner.firstName, winner.lastName)} Won`;
   }
 
-  return `${winners.map((w) => `${w.firstName} ${w.lastName}`).join(', ')} won`;
+  return `${winners.map((w) => formatPersonName(w.firstName, w.lastName)).join(', ')} Won`;
 };
 
 export function MatchCard({ match, onPress, showActions = true, onDelete }: MatchCardProps) {
+  const CardWrapper = onPress ? Pressable : React.Fragment;
+  const wrapperProps = onPress ? { onPress } : {};
+
   return (
-    <Card
-      size="md"
-      variant="elevated"
-      className="p-4 border border-neutral-400"
-    >
+    <CardWrapper {...wrapperProps}>
+      <Card
+        size="md"
+        variant="elevated"
+        className="p-4 border border-neutral-400"
+      >
       <VStack space="md">
         {/* League and Status Badges */}
         <HStack space="sm" className="flex-wrap">
@@ -54,7 +60,7 @@ export function MatchCard({ match, onPress, showActions = true, onDelete }: Matc
             <BadgeText>
               {match.gameType === 'custom' && match.customGameName
                 ? match.customGameName
-                : match.gameType}
+                : formatGameType(match.gameType)}
             </BadgeText>
           </Badge>
           {match.status === 'in_progress' && (
@@ -82,7 +88,7 @@ export function MatchCard({ match, onPress, showActions = true, onDelete }: Matc
                     participant.isWinner ? 'text-success-600' : ''
                   }`}
                 >
-                  {participant.firstName} {participant.lastName}
+                  {formatPersonName(participant.firstName, participant.lastName)}
                   {participant.isWinner && ' ✓'}
                 </Text>
                 {participant.score !== null && (
@@ -137,5 +143,6 @@ export function MatchCard({ match, onPress, showActions = true, onDelete }: Matc
         )}
       </VStack>
     </Card>
+    </CardWrapper>
   );
 }

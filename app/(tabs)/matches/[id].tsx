@@ -24,6 +24,7 @@ import { deleteMatch } from "@/lib/db/matches";
 import { update } from "@/lib/db/queries";
 import { DominosGameData, UnoGameData } from "@/types/games";
 import { CustomGameData } from "@/types/customGame";
+import { formatGameType, capitalize } from "@/lib/utils/text";
 import {
   Accordion,
   AccordionItem,
@@ -479,8 +480,8 @@ export default function MatchDetail() {
                 <Text className="text-typography-900 font-medium">
                   {matchDetails.gameType === 'custom' && matchDetails.customGameName
                     ? matchDetails.customGameName
-                    : matchDetails.gameType.charAt(0).toUpperCase() + matchDetails.gameType.slice(1)}
-                  {matchDetails.gameVariant && ` - ${matchDetails.gameVariant}`}
+                    : formatGameType(matchDetails.gameType)}
+                  {matchDetails.gameVariant && ` - ${capitalize(matchDetails.gameVariant)}`}
                 </Text>
               </VStack>
 
@@ -492,7 +493,7 @@ export default function MatchDetail() {
                   Participants
                 </Heading>
 
-                {matchDetails.participants.map((participant, index) => (
+                {matchDetails.participants.map((participant) => (
                   <Card
                     key={participant.id}
                     size="md"

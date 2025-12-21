@@ -7,6 +7,7 @@ import { Text } from '@/components/ui/text';
 import { Badge, BadgeText } from '@/components/ui/badge';
 import { Pressable } from '@/components/ui/pressable';
 import { SeriesWithStats } from '@/types/series';
+import { formatGameType } from '@/lib/utils/text';
 
 interface SeriesCardProps {
   series: SeriesWithStats;
@@ -45,13 +46,13 @@ export function SeriesCard({ series, onPress, showActions = true }: SeriesCardPr
 
           <HStack space="md" className="flex-wrap">
             <Text size="sm" className="text-typography-600">
-              {series.matchCount} {series.matchCount === 1 ? 'match' : 'matches'}
+              {series.matchCount} {series.matchCount === 1 ? 'Match' : 'Matches'}
             </Text>
             <Text size="sm" className="text-typography-600">
-              {series.playerCount} {series.playerCount === 1 ? 'player' : 'players'}
+              {series.playerCount} {series.playerCount === 1 ? 'Player' : 'Players'}
             </Text>
-            <Text size="sm" className="text-typography-500 capitalize">
-              {series.gameType}
+            <Text size="sm" className="text-typography-500">
+              {formatGameType(series.gameType)}
             </Text>
           </HStack>
 

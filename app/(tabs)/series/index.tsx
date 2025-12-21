@@ -16,6 +16,7 @@ import { useDatabase } from '@/lib/db/provider';
 import { getAllSeries } from '@/lib/db/series';
 import { SeriesWithStats } from '@/types/series';
 import { logger } from '@/lib/utils/logger';
+import { formatGameType } from '@/lib/utils/text';
 
 export default function SeriesList() {
   const { db } = useDatabase();
@@ -102,13 +103,13 @@ export default function SeriesList() {
 
                       <HStack space="md" className="flex-wrap">
                         <Text size="sm" className="text-typography-600">
-                          {s.matchCount} {s.matchCount === 1 ? 'match' : 'matches'}
+                          {s.matchCount} {s.matchCount === 1 ? 'Match' : 'Matches'}
                         </Text>
                         <Text size="sm" className="text-typography-600">
-                          {s.playerCount} {s.playerCount === 1 ? 'player' : 'players'}
+                          {s.playerCount} {s.playerCount === 1 ? 'Player' : 'Players'}
                         </Text>
-                        <Text size="sm" className="text-typography-500 capitalize">
-                          {s.gameType}
+                        <Text size="sm" className="text-typography-500">
+                          {formatGameType(s.gameType)}
                         </Text>
                       </HStack>
 
