@@ -81,15 +81,17 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+apply from: new File(["node", "--print", "require('path').dirname(require.resolve('@sentry/react-native/package.json'))"].execute().text.trim(), "sentry.gradle")
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.mzepeda.starterkitexpo'
+    namespace 'com.mzepeda.thematch'
     defaultConfig {
-        applicationId 'com.mzepeda.starterkitexpo'
+        applicationId 'com.mzepeda.thematch'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -130,12 +132,6 @@ android {
     androidResources {
         ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
     }
-
-    // Compile options: target Java 17 for build toolchain
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
 }
 
 // Apply static values from `gradle.properties` to the `android.packagingOptions`
@@ -156,18 +152,6 @@ android {
             android.packagingOptions[prop] += it
         }
     }
-}
-
-// Ensure Kotlin compilation targets JVM 17
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-
-// Use Kotlin JVM toolchain to align Kotlin compilation with JDK 17
-kotlin {
-    jvmToolchain(17)
 }
 
 dependencies {
