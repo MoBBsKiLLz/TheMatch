@@ -17,7 +17,10 @@ import {
   refactorMatchesForMultiPlayer,
   refactorPlayerLeagues,
   ensureLeagueIdNullable,
-  createCustomGameConfigsTable
+  createCustomGameConfigsTable,
+  addDartsRoundTracking,
+  addQuickEntryMode,
+  createSeriesTables
 } from "./migrations";
 
 type DatabaseContextType = {
@@ -58,6 +61,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         // Add custom game configurations support
         await createCustomGameConfigsTable(dbInstance);
+
+        // Add enhanced darts tracking support
+        await addDartsRoundTracking(dbInstance);
+
+        // Add winner-only mode support
+        await addQuickEntryMode(dbInstance);
+
+        // Add series feature support
+        await createSeriesTables(dbInstance);
+
+        // Verify series_players table exists
+        const seriesPlayersCheck = await dbInstance.get<{ name: string }>(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='series_players'`
+        );
+        if (!seriesPlayersCheck) {
+          console.error('CRITICAL: series_players table was not created!');
+          throw new Error('Failed to create series_players table');
+        }
 
         setDb(dbInstance);
       } catch (error) {

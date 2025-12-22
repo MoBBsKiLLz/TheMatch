@@ -1,6 +1,6 @@
 import { Stack } from "expo-router";
 
-export default function TournamentsLayout() {
+export default function HistoryLayout() {
   return (
     <Stack
       screenOptions={{

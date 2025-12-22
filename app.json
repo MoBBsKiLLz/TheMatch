@@ -15,7 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mzepeda.starter-kit-expo"
+      "bundleIdentifier": "com.mzepeda.thematch"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +23,7 @@
         "backgroundColor": "#2c3639"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mzepeda.starterkitexpo"
+      "package": "com.mzepeda.thematch"
     },
     "web": {
       "bundler": "metro",

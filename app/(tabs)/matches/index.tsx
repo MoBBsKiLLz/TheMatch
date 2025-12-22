@@ -34,6 +34,7 @@ import { Season } from "@/types/season";
 import { getMatchesWithDetails, deleteMatch } from "@/lib/db/matches";
 import { Icon } from "@/components/ui/icon";
 import { Eye, Trash2 } from "lucide-react-native";
+import { formatPersonName } from "@/lib/utils/text";
 
 export default function Matches() {
   const router = useRouter();
@@ -187,15 +188,15 @@ export default function Matches() {
     const winners = match.participants.filter((p) => p.isWinner);
 
     if (winners.length === 0) {
-      return "No winner recorded";
+      return "No Winner Recorded";
     }
 
     if (winners.length === 1) {
-      return `${winners[0].firstName} ${winners[0].lastName} won`;
+      return `${formatPersonName(winners[0].firstName, winners[0].lastName)} Won`;
     }
 
     // Multiple winners (e.g., team game)
-    return `${winners.map((w) => `${w.firstName} ${w.lastName}`).join(", ")} won`;
+    return `${winners.map((w) => formatPersonName(w.firstName, w.lastName)).join(", ")} Won`;
   };
 
   const handleViewMatch = (matchId: number) => {

@@ -26,10 +26,12 @@ export async function createMatch(
     leagueId?: number;
     seasonId?: number;
     weekNumber?: number;
+    seriesId?: number;
     date: number;
     status?: 'completed' | 'in_progress';
     gameVariant?: string;
     gameData?: GameData;
+    quickEntryMode?: boolean;
     participants: CreateMatchParticipant[];
   }
 ): Promise<number> {
@@ -55,15 +57,19 @@ export async function createMatch(
   let matchId: number = 0;
   await db.transaction(async (txDb) => {
     // Insert match
+    const statusToSave = match.status ?? 'completed';
+
     matchId = await insert(txDb, 'matches', {
       gameType: match.gameType,
       leagueId: match.leagueId ?? null,
       seasonId: match.seasonId ?? null,
       weekNumber: match.weekNumber ?? null,
+      seriesId: match.seriesId ?? null,
       date: match.date,
-      status: match.status ?? 'completed',
+      status: statusToSave,
       gameVariant: match.gameVariant ?? null,
       gameData: match.gameData ? JSON.stringify(match.gameData) : null,
+      quickEntryMode: match.quickEntryMode ? 1 : 0,
       createdAt: Date.now(),
     });
 
@@ -239,6 +245,169 @@ export async function getMatchesWithParticipants(
 
 // Alias for backward compatibility
 export const getMatchesWithDetails = getMatchesWithParticipants;
+
+/**
+ * Get in-progress matches with participant details
+ */
+export async function getInProgressMatches(
+  db: Database
+): Promise<MatchWithParticipants[]> {
+  const matchQuery = `
+    SELECT m.*, l.name as leagueName, cgc.name as customGameName
+    FROM matches m
+    LEFT JOIN leagues l ON m.leagueId = l.id
+    LEFT JOIN custom_game_configs cgc ON l.customGameConfigId = cgc.id
+    WHERE m.status = 'in_progress'
+    ORDER BY m.date DESC, m.createdAt DESC
+  `;
+  const matches = await db.all<Match & { leagueName: string | null; customGameName: string | null }>(matchQuery);
+
+  // Get participants for all matches
+  const matchesWithParticipants: MatchWithParticipants[] = [];
+
+  for (const match of matches) {
+    type ParticipantFromDb = Omit<MatchParticipant, 'isWinner'> & {
+      isWinner: number;
+      firstName: string;
+      lastName: string;
+    };
+
+    const participants = await db.all<ParticipantFromDb>(
+      `
+      SELECT
+        mp.*,
+        p.firstName,
+        p.lastName
+      FROM match_participants mp
+      INNER JOIN players p ON mp.playerId = p.id
+      WHERE mp.matchId = ?
+      ORDER BY mp.seatIndex ASC
+    `,
+      [match.id]
+    );
+
+    const participantsWithBoolean = participants.map((p) => ({
+      ...p,
+      isWinner: p.isWinner === 1,
+    }));
+
+    let customGameName = match.customGameName;
+    if (match.gameType === 'custom' && !customGameName && match.gameData) {
+      try {
+        const parsedGameData = JSON.parse(match.gameData);
+        if (parsedGameData.configId) {
+          const customGameConfig = await db.get<{ name: string }>(
+            'SELECT name FROM custom_game_configs WHERE id = ?',
+            [parsedGameData.configId]
+          );
+          customGameName = customGameConfig?.name || null;
+        }
+      } catch (error) {
+        logger.error('Failed to parse gameData for custom game:', error);
+      }
+    }
+
+    const { leagueName, ...matchData } = match;
+    matchesWithParticipants.push({
+      ...matchData,
+      participants: participantsWithBoolean,
+      leagueName: leagueName ?? undefined,
+      customGameName: customGameName ?? undefined,
+    });
+  }
+
+  return matchesWithParticipants;
+}
+
+/**
+ * Get completed matches with participant details
+ */
+export async function getCompletedMatches(
+  db: Database,
+  leagueId?: number,
+  seasonId?: number
+): Promise<MatchWithParticipants[]> {
+  const whereClauses = ['m.status = ?'];
+  const params: (string | number)[] = ['completed'];
+
+  if (leagueId) {
+    whereClauses.push('m.leagueId = ?');
+    params.push(leagueId);
+  }
+
+  if (seasonId) {
+    whereClauses.push('m.seasonId = ?');
+    params.push(seasonId);
+  }
+
+  const whereClause = `WHERE ${whereClauses.join(' AND ')}`;
+
+  const matchQuery = `
+    SELECT m.*, l.name as leagueName, cgc.name as customGameName
+    FROM matches m
+    LEFT JOIN leagues l ON m.leagueId = l.id
+    LEFT JOIN custom_game_configs cgc ON l.customGameConfigId = cgc.id
+    ${whereClause}
+    ORDER BY m.date DESC, m.createdAt DESC
+  `;
+  const matches = await db.all<Match & { leagueName: string | null; customGameName: string | null }>(matchQuery, params);
+
+  // Get participants for all matches
+  const matchesWithParticipants: MatchWithParticipants[] = [];
+
+  for (const match of matches) {
+    type ParticipantFromDb = Omit<MatchParticipant, 'isWinner'> & {
+      isWinner: number;
+      firstName: string;
+      lastName: string;
+    };
+
+    const participants = await db.all<ParticipantFromDb>(
+      `
+      SELECT
+        mp.*,
+        p.firstName,
+        p.lastName
+      FROM match_participants mp
+      INNER JOIN players p ON mp.playerId = p.id
+      WHERE mp.matchId = ?
+      ORDER BY mp.seatIndex ASC
+    `,
+      [match.id]
+    );
+
+    const participantsWithBoolean = participants.map((p) => ({
+      ...p,
+      isWinner: p.isWinner === 1,
+    }));
+
+    let customGameName = match.customGameName;
+    if (match.gameType === 'custom' && !customGameName && match.gameData) {
+      try {
+        const parsedGameData = JSON.parse(match.gameData);
+        if (parsedGameData.configId) {
+          const customGameConfig = await db.get<{ name: string }>(
+            'SELECT name FROM custom_game_configs WHERE id = ?',
+            [parsedGameData.configId]
+          );
+          customGameName = customGameConfig?.name || null;
+        }
+      } catch (error) {
+        logger.error('Failed to parse gameData for custom game:', error);
+      }
+    }
+
+    const { leagueName, ...matchData } = match;
+    matchesWithParticipants.push({
+      ...matchData,
+      participants: participantsWithBoolean,
+      leagueName: leagueName ?? undefined,
+      customGameName: customGameName ?? undefined,
+    });
+  }
+
+  return matchesWithParticipants;
+}
 
 /**
  * Get all matches for a specific player

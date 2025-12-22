@@ -183,19 +183,24 @@ describe('Tournament Management', () => {
         seededPlayers,
       });
 
-      // Check semifinals (round 2) are best-of-3
-      expect(queries.insert).toHaveBeenNthCalledWith(2, mockDb, 'tournament_matches',
-        expect.objectContaining({
-          round: 2,
-          seriesFormat: 'best-of-3',
-        })
-      );
+      // Brackets are created from finals backwards:
+      // Call 1: tournament creation
+      // Call 2: finals (round 1, best-of-5)
+      // Call 3-4: semifinals (round 2, best-of-3)
 
-      // Check finals (round 1) is best-of-5
-      expect(queries.insert).toHaveBeenNthCalledWith(4, mockDb, 'tournament_matches',
+      // Check finals (round 1) is best-of-5 - created first
+      expect(queries.insert).toHaveBeenNthCalledWith(2, mockDb, 'tournament_matches',
         expect.objectContaining({
           round: 1,
           seriesFormat: 'best-of-5',
+        })
+      );
+
+      // Check semifinals (round 2) are best-of-3 - created after finals
+      expect(queries.insert).toHaveBeenNthCalledWith(3, mockDb, 'tournament_matches',
+        expect.objectContaining({
+          round: 2,
+          seriesFormat: 'best-of-3',
         })
       );
     });

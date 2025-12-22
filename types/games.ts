@@ -16,16 +16,78 @@ export type PoolGameData = {
 export type DartsX01Variant = '901' | '701' | '501' | '401' | '301';
 export type DartsCricketType = 'standard' | 'cut-throat';
 
-export type DartsX01GameData = {
-  scores: number[];        // Indexed by seatIndex (0-3)
+// Cricket Enhanced Types
+export type CricketNumber = 20 | 19 | 18 | 17 | 16 | 15 | 'bull';
+
+export type CricketHits = {
+  [key in CricketNumber]: number; // 0-3+ hits
+};
+
+export type CricketPlayerState = {
+  hits: CricketHits;
+  score: number;
+  openNumbers: CricketNumber[];
+};
+
+export type CricketRound = {
+  playerIndex: number;
+  targetNumber: CricketNumber;
+  hitCount: number; // 1, 2, or 3
+  pointsScored: number;
+  timestamp: number;
+};
+
+// Cricket Game Data (Enhanced)
+export type DartsCricketGameDataEnhanced = {
+  cricketType: DartsCricketType;
+  trackingMode: 'live' | 'final_only';
+  rounds?: CricketRound[];
+  playerStates?: CricketPlayerState[];
+  points: number[]; // Final scores indexed by seatIndex
+};
+
+// Cricket Game Data (Legacy)
+export type DartsCricketGameDataLegacy = {
+  points: number[];
+  cricketType: DartsCricketType;
+};
+
+// X01 Enhanced Types
+export type X01Round = {
+  playerIndex: number;
+  score: number;
+  remainingScore: number;
+  darts: number[]; // Up to 3 individual darts
+  isCheckout: boolean;
+  isBust?: boolean; // True if player scored more than remaining (turn ends, score unchanged)
+  timestamp: number;
+};
+
+// X01 Game Data (Enhanced)
+export type DartsX01GameDataEnhanced = {
+  startingScore: number;
+  trackingMode: 'live' | 'final_only';
+  rounds?: X01Round[];
+  currentScores?: number[];
+  scores: number[]; // Final remaining scores
+  finalCheckout?: number;
+};
+
+// X01 Game Data (Legacy)
+export type DartsX01GameDataLegacy = {
+  scores: number[];
   startingScore: number;
   finalCheckout?: number;
 };
 
-export type DartsCricketGameData = {
-  points: number[];        // Indexed by seatIndex (0-3)
-  cricketType: DartsCricketType;
-};
+// Union types for backward compatibility
+export type DartsCricketGameData =
+  | DartsCricketGameDataEnhanced
+  | DartsCricketGameDataLegacy;
+
+export type DartsX01GameData =
+  | DartsX01GameDataEnhanced
+  | DartsX01GameDataLegacy;
 
 export type DartsGameData = DartsX01GameData | DartsCricketGameData;
 

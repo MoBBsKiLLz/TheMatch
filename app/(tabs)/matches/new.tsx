@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Keyboard, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "@/components/ui/scroll-view";
@@ -33,10 +33,11 @@ import {
   CheckboxIcon,
   CheckboxLabel,
 } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { CheckIcon } from "lucide-react-native";
 import { Spinner } from "@/components/ui/spinner";
 import { Center } from "@/components/ui/center";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useDatabase } from "@/lib/db/provider";
 import { League, GameType } from "@/types/league";
 import { createMatch, CreateMatchParticipant } from "@/lib/db/matches";
@@ -53,6 +54,8 @@ import { ParticipantInfo } from "@/components/match-forms/types";
 import { SearchableSelect, SelectOption } from "@/components/SearchableSelect";
 import { getAllCustomGameConfigs, getCustomGameConfig } from "@/lib/db/customGames";
 import { CustomGameConfig } from "@/types/customGame";
+import { getAllSeries } from "@/lib/db/series";
+import { Series } from "@/types/series";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Platform } from "react-native";
 import { Calendar } from "lucide-react-native";
@@ -74,12 +77,16 @@ export default function NewMatch() {
     weekNumber: prefilledWeekNumber,
     playerAId: prefilledPlayerAId,
     playerBId: prefilledPlayerBId,
+    seriesId: prefilledSeriesId,
+    gameType: prefilledGameType,
   } = useLocalSearchParams<{
     leagueId?: string;
     seasonId?: string;
     weekNumber?: string;
     playerAId?: string;
     playerBId?: string;
+    seriesId?: string;
+    gameType?: string;
   }>();
 
   const [leagues, setLeagues] = useState<League[]>([]);
@@ -88,6 +95,10 @@ export default function NewMatch() {
   const [leaguePlayers, setLeaguePlayers] = useState<
     { id: number; firstName: string; lastName: string }[]
   >([]);
+
+  // Series state
+  const [availableSeries, setAvailableSeries] = useState<Series[]>([]);
+  const [selectedSeries, setSelectedSeries] = useState<Series | null>(null);
 
   // Standalone match state
   const [isStandalone, setIsStandalone] = useState(false);
@@ -118,37 +129,46 @@ export default function NewMatch() {
   const [weekNumber, setWeekNumber] = useState<number | null>(null);
   const [gameVariant, setGameVariant] = useState<string>('');
   const [gameData, setGameData] = useState<GameData | null>(null);
+  const [quickEntryMode, setQuickEntryMode] = useState(false);
 
-  // Load leagues, custom games, and check for players
-  useEffect(() => {
-    async function loadLeagues() {
-      if (!db) return;
+  // Load leagues, custom games, series, and check for players
+  // Using useFocusEffect to refresh player count when returning from Players tab
+  useFocusEffect(
+    useCallback(() => {
+      async function loadLeagues() {
+        if (!db) return;
 
-      try {
-        const results = await db.all<League>(
-          "SELECT * FROM leagues ORDER BY name ASC"
-        );
-        setLeagues(results);
+        try {
+          const results = await db.all<League>(
+            "SELECT * FROM leagues ORDER BY name ASC"
+          );
+          setLeagues(results);
 
-        // Load custom game configs
-        const configs = await getAllCustomGameConfigs(db);
-        setCustomGameConfigs(configs);
+          // Load custom game configs
+          const configs = await getAllCustomGameConfigs(db);
+          setCustomGameConfigs(configs);
 
-        // Check total number of players
-        const playerCountResult = await db.get<{ count: number }>(
-          "SELECT COUNT(*) as count FROM players"
-        );
-        setTotalPlayers(playerCountResult?.count || 0);
-      } catch (error) {
-        console.error("Failed to load leagues:", error);
-        setErrors({ general: "Failed to load leagues" });
-      } finally {
-        setIsLoading(false);
+          // Load active series
+          const seriesData = await getAllSeries(db);
+          const activeSeries = seriesData.filter(s => s.status === 'active');
+          setAvailableSeries(activeSeries);
+
+          // Check total number of players
+          const playerCountResult = await db.get<{ count: number }>(
+            "SELECT COUNT(*) as count FROM players"
+          );
+          setTotalPlayers(playerCountResult?.count || 0);
+        } catch (error) {
+          console.error("Failed to load leagues:", error);
+          setErrors({ general: "Failed to load leagues" });
+        } finally {
+          setIsLoading(false);
+        }
       }
-    }
 
-    loadLeagues();
-  }, [db]);
+      loadLeagues();
+    }, [db])
+  );
 
   // Load league and players when league is selected OR when standalone mode
   useEffect(() => {
@@ -160,6 +180,7 @@ export default function NewMatch() {
           // Standalone mode
           setIsStandalone(true);
           setLeague(null);
+          setSelectedSeries(null);
 
           // Load ALL players
           const allPlayers = await db.all<{id: number; firstName: string; lastName: string}>(
@@ -192,9 +213,42 @@ export default function NewMatch() {
               );
             }
           }
+        } else if (selectedLeague.startsWith('series-')) {
+          // Series mode
+          setIsStandalone(true);
+          setLeague(null);
+
+          const seriesId = Number(selectedLeague.replace('series-', ''));
+          const series = availableSeries.find(s => s.id === seriesId);
+          setSelectedSeries(series || null);
+
+          // Load ALL players
+          const allPlayers = await db.all<{id: number; firstName: string; lastName: string}>(
+            'SELECT id, firstName, lastName FROM players ORDER BY lastName ASC, firstName ASC'
+          );
+          setLeaguePlayers(allPlayers);
+
+          // Set game type and variant from series
+          if (series) {
+            const config = getGameConfig(series.gameType as GameType);
+            if (config) {
+              setGameVariant(config.variants[0]);
+
+              // Initialize participants
+              const initialCount = config.minPlayers;
+              setPlayerCount(initialCount);
+              setParticipants(
+                Array.from({ length: initialCount }, () => ({
+                  playerId: "",
+                  isWinner: false,
+                }))
+              );
+            }
+          }
         } else if (selectedLeague) {
           // League mode
           setIsStandalone(false);
+          setSelectedSeries(null);
 
           // Load league data
           const leagueData = await findById<League>(db, 'leagues', Number(selectedLeague));
@@ -243,6 +297,18 @@ export default function NewMatch() {
       setSelectedLeague(prefilledLeagueId);
     }
   }, [prefilledLeagueId]);
+
+  // Pre-fill series if provided
+  useEffect(() => {
+    if (prefilledSeriesId) {
+      setSelectedLeague(`series-${prefilledSeriesId}`);
+
+      // Pre-fill game type from series
+      if (prefilledGameType) {
+        setStandaloneGameType(prefilledGameType as GameType);
+      }
+    }
+  }, [prefilledSeriesId, prefilledGameType]);
 
   // Store season and week if provided
   useEffect(() => {
@@ -350,18 +416,20 @@ export default function NewMatch() {
         newErrors.winner = "Please select at least one winner";
       }
 
-      // Validate against game config (only for completed matches)
-      const gameType = isStandalone ? standaloneGameType : league?.gameType;
-      if (gameType) {
-        const config = getGameConfig(gameType);
-        if (!config.validateParticipants(
-          participants.map((p, idx) => ({
-            playerId: Number(p.playerId),
-            seatIndex: idx,
-            isWinner: p.isWinner,
-          }))
-        )) {
-          newErrors.participants = `Invalid participant configuration for ${config.name}`;
+      // Validate against game config (only for completed matches and not in quick entry mode)
+      if (!quickEntryMode) {
+        const gameType = isStandalone ? standaloneGameType : league?.gameType;
+        if (gameType) {
+          const config = getGameConfig(gameType);
+          if (!config.validateParticipants(
+            participants.map((p, idx) => ({
+              playerId: Number(p.playerId),
+              seatIndex: idx,
+              isWinner: p.isWinner,
+            }))
+          )) {
+            newErrors.participants = `Invalid participant configuration for ${config.name}`;
+          }
         }
       }
     }
@@ -413,11 +481,22 @@ export default function NewMatch() {
         }
       );
 
-      const gameType = isStandalone ? standaloneGameType : league!.gameType;
+      // Parse selectedLeague to determine leagueId or seriesId
+      let leagueId: number | undefined;
+      let matchSeriesId: number | undefined;
 
-      await createMatch(db, {
+      if (selectedLeague.startsWith('series-')) {
+        matchSeriesId = Number(selectedLeague.replace('series-', ''));
+      } else if (selectedLeague !== 'standalone') {
+        leagueId = Number(selectedLeague);
+      }
+
+      const gameType = selectedSeries ? (selectedSeries.gameType as GameType) : (isStandalone ? standaloneGameType : league!.gameType);
+
+      const matchId = await createMatch(db, {
         gameType,
-        ...(isStandalone ? {} : { leagueId: Number(selectedLeague) }),
+        ...(leagueId && { leagueId }),
+        ...(matchSeriesId && { seriesId: matchSeriesId }),
         date: matchDate,
         participants: matchParticipants,
         status: status,
@@ -425,19 +504,46 @@ export default function NewMatch() {
         ...(weekNumber && { weekNumber: weekNumber }),
         ...(gameVariant && { gameVariant }),
         ...(gameData && { gameData }),
+        quickEntryMode: quickEntryMode,
       });
 
       setIsSubmitting(false);
 
+      // Reset form state to prevent showing previous match data
+      setSelectedLeague("");
+      setLeague(null);
+      setSelectedSeries(null);
+      setIsStandalone(false);
+      setStandaloneGameType('pool');
+      setStandaloneCustomGameConfigId("");
+      setCustomGameConfig(null);
+      setParticipants([
+        { playerId: "", isWinner: false },
+        { playerId: "", isWinner: false },
+      ]);
+      setPlayerCount(2);
+      setMatchDate(Date.now());
+      setShowDatePicker(false);
+      setGameData(null);
+      setGameVariant('');
+      setQuickEntryMode(false);
+      setErrors({});
+
       // Small delay to ensure DB operations complete
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Navigate back to season screen if this was a season match
-      if (seasonId && prefilledLeagueId) {
-        router.replace("/(tabs)/matches");
+      // Navigate back to origin based on context
+      if (prefilledSeriesId) {
+        // Series match - go back to series detail via Play tab
+        router.replace("/(tabs)/play");
+        router.push(`/series/${prefilledSeriesId}`);
+      } else if (seasonId && prefilledLeagueId) {
+        // Season match - go back to season detail via Leagues tab
+        router.replace("/(tabs)/leagues");
         router.push(`/leagues/${prefilledLeagueId}/seasons/${seasonId}`);
       } else {
-        router.back();
+        // Standalone match - go to Play tab
+        router.replace("/(tabs)/play");
       }
     } catch (err) {
       console.error("Failed to save match:", err);
@@ -467,8 +573,8 @@ export default function NewMatch() {
     );
   }
 
-  // Enforce that players must be created before matches
-  if (totalPlayers === 0) {
+  // Enforce that at least 2 players must exist before matches can be created
+  if (totalPlayers < 2) {
     return (
       <SafeAreaView className="flex-1 bg-background-0">
         <VStack className="flex-1 p-6" space="2xl">
@@ -478,10 +584,13 @@ export default function NewMatch() {
           <Center className="flex-1">
             <VStack space="md" className="items-center max-w-md">
               <Text className="text-typography-500 text-center text-lg">
-                Create players first
+                {totalPlayers === 0 ? 'Create players first' : 'Need one more player'}
               </Text>
               <Text className="text-typography-400 text-center">
-                You need to add players before you can record a match. Tap the Players tab below to get started.
+                {totalPlayers === 0
+                  ? 'You need at least 2 players to record a match. Tap below to add your first players.'
+                  : `You have ${totalPlayers} player, but need at least 2 to record a match. Add one more player to continue.`
+                }
               </Text>
               <Button
                 size="lg"
@@ -524,10 +633,10 @@ export default function NewMatch() {
           </Heading>
 
           <VStack space="xl">
-            {/* League Selection */}
+            {/* League or Series Selection */}
             <FormControl isRequired isInvalid={!!errors.league}>
               <FormControlLabel>
-                <FormControlLabelText>League</FormControlLabelText>
+                <FormControlLabelText>League or Series</FormControlLabelText>
               </FormControlLabel>
               <SearchableSelect
                 options={[
@@ -536,12 +645,16 @@ export default function NewMatch() {
                     label: league.name,
                     value: String(league.id),
                   })),
+                  ...availableSeries.map((series) => ({
+                    label: `📊 ${series.name}`,
+                    value: `series-${series.id}`,
+                  })),
                 ]}
                 selectedValue={selectedLeague}
                 onValueChange={setSelectedLeague}
-                placeholder="Select league"
-                searchPlaceholder="Search leagues..."
-                emptyMessage="No leagues found"
+                placeholder="Select league, series, or standalone"
+                searchPlaceholder="Search..."
+                emptyMessage="No leagues or series found"
                 isDisabled={isSubmitting}
                 size="lg"
                 variant="outline"
@@ -558,12 +671,15 @@ export default function NewMatch() {
               <>
                 <FormControl isRequired>
                   <FormControlLabel>
-                    <FormControlLabelText>Game Type</FormControlLabelText>
+                    <FormControlLabelText>
+                      Game Type
+                      {prefilledGameType && ' (from series)'}
+                    </FormControlLabelText>
                   </FormControlLabel>
                   <Select
                     selectedValue={standaloneGameType}
                     onValueChange={(value) => setStandaloneGameType(value as GameType)}
-                    isDisabled={isSubmitting}
+                    isDisabled={isSubmitting || !!prefilledGameType}
                   >
                     <SelectTrigger variant="outline" size="lg">
                       <SelectInput
@@ -781,10 +897,14 @@ export default function NewMatch() {
                         onValueChange={(value) =>
                           updateParticipant(index, { playerId: value })
                         }
-                        placeholder={`Select player ${index + 1}`}
+                        placeholder={
+                          prefilledPlayerAId || prefilledPlayerBId
+                            ? `Player ${index + 1} (from series)`
+                            : `Select player ${index + 1}`
+                        }
                         searchPlaceholder="Search players..."
                         emptyMessage="No players found"
-                        isDisabled={isSubmitting}
+                        isDisabled={isSubmitting || !!(prefilledPlayerAId || prefilledPlayerBId)}
                         size="lg"
                         variant="outline"
                       />
@@ -814,8 +934,31 @@ export default function NewMatch() {
               </>
             )}
 
-            {/* Game-Specific Forms */}
+            {/* Quick Entry Mode Toggle */}
             {(selectedLeague || isStandalone) && participants.every((p) => p.playerId) && (
+              <>
+                <Divider />
+                <FormControl>
+                  <HStack className="items-center justify-between">
+                    <VStack className="flex-1">
+                      <FormControlLabel>
+                        <FormControlLabelText>Quick Entry (Winner Only)</FormControlLabelText>
+                      </FormControlLabel>
+                      <Text size="sm" className="text-typography-500">
+                        Skip detailed scoring and only record the winner
+                      </Text>
+                    </VStack>
+                    <Switch
+                      value={quickEntryMode}
+                      onValueChange={setQuickEntryMode}
+                    />
+                  </HStack>
+                </FormControl>
+              </>
+            )}
+
+            {/* Game-Specific Forms */}
+            {(selectedLeague || isStandalone) && participants.every((p) => p.playerId) && !quickEntryMode && (
               <>
                 <Divider />
                 <Heading size="md">Game Details</Heading>
@@ -839,6 +982,15 @@ export default function NewMatch() {
                     onDataChange={(data) => {
                       // Darts game doesn't have finalScores, so playerScores is empty
                       setGameData({ ...data, playerScores: {} });
+                    }}
+                    onWinnersChange={(winnerPlayerIds) => {
+                      // Auto-set winners from live tracking
+                      setParticipants((prev) =>
+                        prev.map((p) => ({
+                          ...p,
+                          isWinner: winnerPlayerIds.includes(Number(p.playerId)),
+                        }))
+                      );
                     }}
                   />
                 )}
@@ -941,7 +1093,7 @@ export default function NewMatch() {
                 size="lg"
                 className="flex-1"
                 onPress={() => handleSubmit('completed')}
-                isDisabled={isSubmitting || leaguePlayers.length < 2}
+                isDisabled={isSubmitting || participants.some(p => !p.playerId)}
               >
                 <ButtonText numberOfLines={1}>
                   {isSubmitting ? "Saving..." : "Complete Match"}
@@ -957,7 +1109,7 @@ export default function NewMatch() {
                 size="lg"
                 variant="outline"
                 onPress={() => handleSubmit('in_progress')}
-                isDisabled={isSubmitting || leaguePlayers.length < 2}
+                isDisabled={isSubmitting || participants.some(p => !p.playerId)}
               >
                 <ButtonText numberOfLines={1}>
                   Save In Progress

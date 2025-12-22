@@ -35,11 +35,11 @@ type ITableProps = React.ComponentProps<typeof ExpoTable>;
 type ITableHeaderProps = React.ComponentProps<typeof ExpoTHead>;
 type ITableBodyProps = React.ComponentProps<typeof ExpoTBody>;
 type ITableFooterProps = React.ComponentProps<typeof ExpoTFoot>;
-type ITableHeadProps = React.ComponentProps<typeof View | typeof Text> & {
+type ITableHeadProps = (React.ComponentProps<typeof View> | React.ComponentProps<typeof Text>) & {
   useRNView?: boolean;
 };
 type ITableRowProps = React.ComponentProps<typeof ExpoTR>;
-type ITableDataProps = React.ComponentProps<typeof View | typeof Text> & {
+type ITableDataProps = (React.ComponentProps<typeof View> | React.ComponentProps<typeof Text>) & {
   useRNView?: boolean;
 };
 type ITableCaptionProps = React.ComponentProps<typeof ExpoTCaption>;
@@ -111,7 +111,7 @@ const TableFooter = React.forwardRef<
 });
 
 const TableHead = React.forwardRef<
-  React.ComponentRef<typeof View | typeof Text>,
+  any,
   ITableHeadProps
 >(function TableHead({ useRNView = false, className, ...props }, ref) {
   if (useRNView) {
@@ -119,7 +119,7 @@ const TableHead = React.forwardRef<
       <View
         ref={ref}
         className={tableHeadStyle({ class: className })}
-        {...props}
+        {...(props as any)}
       />
     );
   } else {
@@ -127,7 +127,7 @@ const TableHead = React.forwardRef<
       <Text
         ref={ref}
         className={tableHeadStyle({ class: className })}
-        {...props}
+        {...(props as any)}
       />
     );
   }
@@ -154,7 +154,7 @@ const TableRow = React.forwardRef<
 });
 
 const TableData = React.forwardRef<
-  React.ComponentRef<typeof View | typeof Text>,
+  any,
   ITableDataProps
 >(function TableData({ useRNView = false, className, ...props }, ref) {
   if (useRNView) {
@@ -162,7 +162,7 @@ const TableData = React.forwardRef<
       <View
         ref={ref}
         className={tableDataStyle({ class: className })}
-        {...props}
+        {...(props as any)}
       />
     );
   } else {
@@ -170,7 +170,7 @@ const TableData = React.forwardRef<
       <Text
         ref={ref}
         className={tableDataStyle({ class: className })}
-        {...props}
+        {...(props as any)}
       />
     );
   }

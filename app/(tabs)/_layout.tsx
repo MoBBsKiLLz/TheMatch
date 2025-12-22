@@ -1,13 +1,13 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { History, Menu, Landmark, Swords } from 'lucide-react-native';
 import { Tabs } from 'expo-router';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
 function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
+  Icon: React.ComponentType<any>;
   color: string;
 }) {
-  return <FontAwesome size={18} style={{ marginBottom: -3 }} {...props} />;
+  return <props.Icon size={18} color={props.color} />;
 }
 
 export default function TabLayout() {
@@ -22,40 +22,52 @@ export default function TabLayout() {
         lazy: false,
       }}
     >
+      {/* NEW TABS */}
       <Tabs.Screen
-        name="players"
+        name="play"
         options={{
-          title: 'Players',
-          tabBarIcon: ({ color }) => <TabBarIcon name="users" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="custom-games"
-        options={{
-          title: 'Games',
-          tabBarIcon: ({ color }) => <TabBarIcon name="gamepad" color={color} />,
+          title: 'Play',
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Swords} color={color} />,
         }}
       />
       <Tabs.Screen
         name="leagues"
         options={{
           title: 'Leagues',
-          tabBarIcon: ({ color }) => <TabBarIcon name="bank" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Landmark} color={color} />,
         }}
+      />
+      <Tabs.Screen
+        name="history"
+        options={{
+          title: 'History',
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={History} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="menu"
+        options={{
+          title: 'Menu',
+          tabBarIcon: ({ color }) => <TabBarIcon Icon={Menu} color={color} />,
+        }}
+      />
+
+      {/* HIDDEN ROUTES - Still accessible via router.push() */}
+      <Tabs.Screen
+        name="players"
+        options={{ href: null, title: 'Players' }}
+      />
+      <Tabs.Screen
+        name="custom-games"
+        options={{ href: null, title: 'Custom Games' }}
       />
       <Tabs.Screen
         name="matches"
-        options={{
-          title: 'Matches',
-          tabBarIcon: ({ color }) => <TabBarIcon name="handshake-o" color={color} />,
-        }}
+        options={{ href: null, title: 'Matches' }}
       />
       <Tabs.Screen
-        name="tournaments"
-        options={{
-          title: 'Tournaments',
-          tabBarIcon: ({ color }) => <TabBarIcon name="trophy" color={color} />,
-        }}
+        name="series"
+        options={{ href: null, title: 'Series' }}
       />
     </Tabs>
   );

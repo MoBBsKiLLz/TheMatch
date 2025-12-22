@@ -486,3 +486,123 @@ export async function createCustomGameConfigsTable(db: Database): Promise<void> 
     throw error;
   }
 }
+
+export async function addDartsRoundTracking(db: Database): Promise<void> {
+  try {
+    // No schema changes needed - darts round tracking uses existing gameData JSON field
+    // This migration exists for documentation and version tracking purposes
+    logger.database('Darts round tracking feature enabled (uses existing gameData field)');
+  } catch (error) {
+    logger.error('Migration check for darts round tracking failed:', error);
+  }
+}
+
+export async function addQuickEntryMode(db: Database): Promise<void> {
+  try {
+    // Check if column already exists
+    const tableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(matches)"
+    );
+
+    const hasQuickEntryMode = tableInfo.some(col => col.name === 'quickEntryMode');
+
+    if (!hasQuickEntryMode) {
+      await db.run('ALTER TABLE matches ADD COLUMN quickEntryMode INTEGER DEFAULT 0');
+      logger.database('Added quickEntryMode column to matches table');
+    }
+  } catch (error) {
+    logger.error('Failed to add quickEntryMode column:', error);
+  }
+}
+
+export async function createSeriesTables(db: Database): Promise<void> {
+  try {
+    logger.database('Starting series tables migration...');
+
+    // Check if series table exists
+    const tableExists = await db.get<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='series'`
+    );
+
+    if (!tableExists) {
+      logger.database('Creating series table...');
+      // Create series table
+      await db.run(`
+        CREATE TABLE series (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          description TEXT,
+          gameType TEXT NOT NULL,
+          startDate INTEGER NOT NULL,
+          endDate INTEGER,
+          status TEXT DEFAULT 'active' CHECK (status IN ('active', 'completed')),
+          createdAt INTEGER NOT NULL
+        )
+      `);
+
+      // Create index
+      await db.run(`
+        CREATE INDEX idx_series_status ON series(status)
+      `);
+
+      logger.database('Created series table');
+    } else {
+      logger.database('Series table already exists');
+    }
+
+    // Create series_players junction table
+    const seriesPlayersExists = await db.get<{ name: string }>(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='series_players'`
+    );
+
+    if (!seriesPlayersExists) {
+      logger.database('Creating series_players table...');
+      await db.run(`
+        CREATE TABLE series_players (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          seriesId INTEGER NOT NULL,
+          playerId INTEGER NOT NULL,
+          addedAt INTEGER NOT NULL,
+          FOREIGN KEY (seriesId) REFERENCES series(id) ON DELETE CASCADE,
+          FOREIGN KEY (playerId) REFERENCES players(id) ON DELETE CASCADE,
+          UNIQUE(seriesId, playerId)
+        )
+      `);
+
+      await db.run(`
+        CREATE INDEX idx_series_players_seriesId ON series_players(seriesId)
+      `);
+
+      await db.run(`
+        CREATE INDEX idx_series_players_playerId ON series_players(playerId)
+      `);
+
+      logger.database('Created series_players table');
+    } else {
+      logger.database('series_players table already exists');
+    }
+
+    // Add seriesId to matches table
+    const matchesTableInfo = await db.all<{ name: string }>(
+      "PRAGMA table_info(matches)"
+    );
+
+    const hasSeriesId = matchesTableInfo.some(col => col.name === 'seriesId');
+
+    if (!hasSeriesId) {
+      await db.run(`
+        ALTER TABLE matches
+        ADD COLUMN seriesId INTEGER REFERENCES series(id)
+      `);
+
+      await db.run(`
+        CREATE INDEX idx_matches_seriesId ON matches(seriesId)
+      `);
+
+      logger.database('Added seriesId to matches table');
+    }
+  } catch (error) {
+    logger.error('Failed to create series tables:', error);
+    throw error;
+  }
+}

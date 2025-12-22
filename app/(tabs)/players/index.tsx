@@ -84,28 +84,58 @@ export default function Players() {
     Keyboard.dismiss();
   };
 
-  const handleDelete =(player: Player) => {
-    Alert.alert(
-      "Delete Player",
-      `Are you sure you want to delete ${player.firstName} ${player.lastName}? This cannot be undone.`,
-      [
-        {text: "Cancel", style: "cancel"},
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            if(!db) return;
-            try {
-              await remove(db, "players", player.id);
-              fetchPlayers();
-            } catch (error) {
-              console.error("Failed to delete players: ", error);
-              Alert.alert("Error", "Failed to delete player");
-            }
+  const handleDelete = async (player: Player) => {
+    if (!db) return;
+
+    try {
+      // Check if player is referenced in any matches
+      const matchesCount = await db.get<{count: number}>(
+        'SELECT COUNT(*) as count FROM match_participants WHERE playerId = ?',
+        [player.id]
+      );
+
+      // Check if player is in any leagues
+      const leaguesCount = await db.get<{count: number}>(
+        'SELECT COUNT(*) as count FROM player_leagues WHERE playerId = ?',
+        [player.id]
+      );
+
+      const totalReferences = (matchesCount?.count || 0) + (leaguesCount?.count || 0);
+
+      if (totalReferences > 0) {
+        Alert.alert(
+          "Cannot Delete Player",
+          `${player.firstName} ${player.lastName} is referenced in ${matchesCount?.count || 0} match(es) and ${leaguesCount?.count || 0} league(s). Players with match or league history cannot be deleted to preserve data integrity.`,
+          [{text: "OK"}]
+        );
+        return;
+      }
+
+      // If no references, proceed with deletion confirmation
+      Alert.alert(
+        "Delete Player",
+        `Are you sure you want to delete ${player.firstName} ${player.lastName}? This cannot be undone.`,
+        [
+          {text: "Cancel", style: "cancel"},
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await remove(db, "players", player.id);
+                fetchPlayers();
+              } catch (error) {
+                console.error("Failed to delete player:", error);
+                Alert.alert("Error", "Failed to delete player");
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } catch (error) {
+      console.error("Failed to check player references:", error);
+      Alert.alert("Error", "Failed to verify player deletion safety");
+    }
   };
 
   const handleEdit = (player: Player) => {
