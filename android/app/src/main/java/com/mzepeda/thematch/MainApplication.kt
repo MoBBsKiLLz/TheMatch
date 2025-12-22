@@ -1,4 +1,4 @@
-package com.mzepeda.starterkitexpo
+package com.mzepeda.thematch
 
 import android.app.Application
 import android.content.res.Configuration
