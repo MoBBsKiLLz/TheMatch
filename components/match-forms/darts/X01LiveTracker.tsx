@@ -5,6 +5,7 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Input, InputField } from '@/components/ui/input';
 import {
   Accordion,
   AccordionItem,
@@ -54,6 +55,17 @@ export function X01LiveTracker({
   const [currentDarts, setCurrentDarts] = useState<DartEntry[]>([]);
   const [currentDartIndex, setCurrentDartIndex] = useState(0);
 
+  // Input mode: 'dart-by-dart' or 'round-total'
+  const [inputMode, setInputMode] = useState<'dart-by-dart' | 'round-total'>('dart-by-dart');
+  const [roundTotalInput, setRoundTotalInput] = useState('');
+
+  // Clear input state when switching modes
+  useEffect(() => {
+    setCurrentDarts([]);
+    setCurrentDartIndex(0);
+    setRoundTotalInput('');
+  }, [inputMode]);
+
   // Update parent with data
   useEffect(() => {
     onDataChange({
@@ -75,6 +87,12 @@ export function X01LiveTracker({
   const handleNumberTap = (number: number) => {
     if (hasWinner) return;
 
+    // Special handling for 0 (Miss) - no multipliers needed
+    if (number === 0) {
+      handleMultiplierSelect(0, 1);
+      return;
+    }
+
     // Special handling for Bull
     const isBull = number === 25;
 
@@ -87,10 +105,6 @@ export function X01LiveTracker({
           {
             text: 'Double Bull (50 points)',
             onPress: () => handleMultiplierSelect(number, 2),
-          },
-          {
-            text: 'Miss (0 points)',
-            onPress: () => handleMultiplierSelect(0, 1),
           },
           {
             text: 'Cancel',
@@ -109,10 +123,6 @@ export function X01LiveTracker({
           {
             text: `Triple (${number * 3} points)`,
             onPress: () => handleMultiplierSelect(number, 3),
-          },
-          {
-            text: 'Miss (0 points)',
-            onPress: () => handleMultiplierSelect(0, 1),
           },
           {
             text: 'Cancel',
@@ -214,6 +224,53 @@ export function X01LiveTracker({
     }
   };
 
+  const handleRecordRoundTotal = () => {
+    const score = parseInt(roundTotalInput) || 0;
+
+    if (score === 0) {
+      Alert.alert('Invalid Score', 'Please enter a score greater than 0');
+      return;
+    }
+
+    const currentRemaining = currentScores[activePlayerIndex];
+
+    // Check if player busted (scored more than remaining)
+    const isBust = score > currentRemaining;
+
+    // Calculate new remaining score
+    const newRemaining = isBust ? currentRemaining : currentRemaining - score;
+
+    // Check for valid checkout (must finish on exactly 0, can't bust on checkout)
+    const isCheckout = !isBust && newRemaining === 0;
+
+    const newRound: X01Round = {
+      playerIndex: activePlayerIndex,
+      score: isBust ? 0 : score,
+      remainingScore: newRemaining,
+      darts: [], // No individual dart tracking in round total mode
+      isCheckout,
+      isBust,
+      timestamp: Date.now(),
+    };
+
+    // Update scores
+    const newScores = [...currentScores];
+    newScores[activePlayerIndex] = newRemaining;
+    setCurrentScores(newScores);
+
+    // Add round
+    setRounds(prev => [...prev, newRound]);
+
+    // Reset input
+    setRoundTotalInput('');
+
+    // Move to next player (unless checkout)
+    if (!isCheckout) {
+      const nextPlayer = (activePlayerIndex + 1) % participants.length;
+      setActivePlayerIndex(nextPlayer);
+    }
+  };
+
   const handleUndoLastRound = () => {
     if (rounds.length === 0) return;
 
@@ -303,8 +360,33 @@ export function X01LiveTracker({
               {participants[activePlayerIndex].firstName}'s Turn
             </Heading>
 
-            {/* Dart Status Bar */}
-            <VStack space="xs">
+            {/* Input Mode Tabs */}
+            <HStack space="xs">
+              <Button
+                size="sm"
+                action={inputMode === 'dart-by-dart' ? 'primary' : 'secondary'}
+                variant={inputMode === 'dart-by-dart' ? 'solid' : 'outline'}
+                onPress={() => setInputMode('dart-by-dart')}
+                className="flex-1"
+              >
+                <ButtonText>Dart by Dart</ButtonText>
+              </Button>
+              <Button
+                size="sm"
+                action={inputMode === 'round-total' ? 'primary' : 'secondary'}
+                variant={inputMode === 'round-total' ? 'solid' : 'outline'}
+                onPress={() => setInputMode('round-total')}
+                className="flex-1"
+              >
+                <ButtonText>Round Total</ButtonText>
+              </Button>
+            </HStack>
+
+            {/* Dart by Dart Mode */}
+            {inputMode === 'dart-by-dart' && (
+              <>
+                {/* Dart Status Bar */}
+                <VStack space="xs">
               <Text size="sm" className="text-typography-600">
                 Darts Entered ({currentDarts.length}/3)
               </Text>
@@ -509,6 +591,38 @@ export function X01LiveTracker({
               >
                 <ButtonText>Reset Turn</ButtonText>
               </Button>
+            )}
+              </>
+            )}
+
+            {/* Round Total Mode */}
+            {inputMode === 'round-total' && (
+              <VStack space="md">
+                <Text size="sm" className="text-typography-600">
+                  Enter the total score for this round
+                </Text>
+                <Input variant="outline" size="lg">
+                  <InputField
+                    keyboardType="number-pad"
+                    value={roundTotalInput}
+                    onChangeText={setRoundTotalInput}
+                    placeholder="Total score"
+                  />
+                </Input>
+                <HStack className="items-center" space="xs">
+                  <Text size="sm" className="text-typography-500">
+                    Remaining: {currentScores[activePlayerIndex]}
+                  </Text>
+                </HStack>
+                <Button
+                  action="primary"
+                  size="lg"
+                  onPress={handleRecordRoundTotal}
+                  isDisabled={!roundTotalInput || parseInt(roundTotalInput) === 0}
+                >
+                  <ButtonText>Record Round</ButtonText>
+                </Button>
+              </VStack>
             )}
           </VStack>
         </Card>
