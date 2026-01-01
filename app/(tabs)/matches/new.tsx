@@ -1082,17 +1082,42 @@ export default function NewMatch() {
                 variant="outline"
                 size="lg"
                 className="flex-1"
-                onPress={handleCancel}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Match?',
+                    'Are you sure you want to cancel? All progress will be lost.',
+                    [
+                      { text: 'Keep Editing', style: 'cancel' },
+                      {
+                        text: 'Cancel Match',
+                        style: 'destructive',
+                        onPress: handleCancel,
+                      },
+                    ]
+                  );
+                }}
                 isDisabled={isSubmitting}
               >
                 <ButtonText>Cancel</ButtonText>
               </Button>
 
               <Button
-                action="primary"
                 size="lg"
-                className="flex-1"
-                onPress={() => handleSubmit('completed')}
+                className="flex-1 bg-secondary-500"
+                onPress={() => {
+                  Alert.alert(
+                    'Complete Match?',
+                    'Are you sure you want to complete this match? This action cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Complete Match',
+                        style: 'default',
+                        onPress: () => handleSubmit('completed'),
+                      },
+                    ]
+                  );
+                }}
                 isDisabled={isSubmitting || participants.some(p => !p.playerId)}
               >
                 <ButtonText numberOfLines={1}>

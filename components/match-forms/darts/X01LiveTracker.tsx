@@ -73,11 +73,7 @@ export function X01LiveTracker({
   }, [currentScores, rounds]);
 
   const handleNumberTap = (number: number) => {
-    console.log('[X01] handleNumberTap called - number:', number, 'hasWinner:', hasWinner, 'currentDarts:', currentDarts.length);
-    if (hasWinner) {
-      console.log('[X01] Blocked - game has winner');
-      return;
-    }
+    if (hasWinner) return;
 
     // Special handling for Bull
     const isBull = number === 25;
@@ -132,9 +128,7 @@ export function X01LiveTracker({
   };
 
   const handleMultiplierSelect = (number: number, multiplier: number) => {
-    console.log('[X01] handleMultiplierSelect - number:', number, 'multiplier:', multiplier);
     const points = number * multiplier;
-    console.log('[X01] Calculated points:', points);
 
     const newDart: DartEntry = {
       number,
@@ -143,7 +137,6 @@ export function X01LiveTracker({
     };
 
     const updatedDarts = [...currentDarts, newDart];
-    console.log('[X01] Updated darts:', updatedDarts);
     setCurrentDarts(updatedDarts);
     setCurrentDartIndex(currentDartIndex + 1);
 
@@ -186,10 +179,8 @@ export function X01LiveTracker({
     isCheckout: boolean,
     isBust: boolean
   ) => {
-    console.log('[X01] recordRoundFromDarts called - darts:', darts, 'isCheckout:', isCheckout, 'isBust:', isBust);
     const totalScore = darts.reduce((sum, d) => sum + d.points, 0);
     const currentRemaining = currentScores[activePlayerIndex];
-    console.log('[X01] totalScore:', totalScore, 'currentRemaining:', currentRemaining);
 
     // Calculate new remaining score
     const newRemaining = isBust ? currentRemaining : currentRemaining - totalScore;

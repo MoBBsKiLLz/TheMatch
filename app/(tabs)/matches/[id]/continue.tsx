@@ -271,17 +271,42 @@ export default function ContinueMatch() {
                 variant="outline"
                 size="lg"
                 className="flex-1"
-                onPress={() => router.back()}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Match?',
+                    'Are you sure you want to cancel? All progress will be lost.',
+                    [
+                      { text: 'Keep Editing', style: 'cancel' },
+                      {
+                        text: 'Cancel Match',
+                        style: 'destructive',
+                        onPress: () => router.back(),
+                      },
+                    ]
+                  );
+                }}
                 isDisabled={isSaving}
               >
                 <ButtonText>Cancel</ButtonText>
               </Button>
 
               <Button
-                action="primary"
                 size="lg"
-                className="flex-1"
-                onPress={() => handleSave("completed")}
+                className="flex-1 bg-secondary-500"
+                onPress={() => {
+                  Alert.alert(
+                    'Complete Match?',
+                    'Are you sure you want to complete this match? This action cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Complete Match',
+                        style: 'default',
+                        onPress: () => handleSave("completed"),
+                      },
+                    ]
+                  );
+                }}
                 isDisabled={isSaving}
               >
                 <ButtonText numberOfLines={1}>
