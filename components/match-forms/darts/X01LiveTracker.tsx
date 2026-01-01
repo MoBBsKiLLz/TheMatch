@@ -5,12 +5,6 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input, InputField } from '@/components/ui/input';
-import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-} from '@/components/ui/form-control';
 import {
   Accordion,
   AccordionItem,
@@ -28,6 +22,13 @@ import {
 } from '@/types/games';
 import { ParticipantInfo } from '../types';
 import { Alert } from 'react-native';
+import { Pressable } from '@/components/ui/pressable';
+
+type DartEntry = {
+  number: number;      // 0-20 or 25 for bull
+  multiplier: number;  // 1, 2, or 3
+  points: number;      // number * multiplier
+};
 
 interface X01LiveTrackerProps {
   participants: ParticipantInfo[];
@@ -49,11 +50,9 @@ export function X01LiveTracker({
   const [activePlayerIndex, setActivePlayerIndex] = useState(0);
   const [accordionValue, setAccordionValue] = useState<string[]>([]);
 
-  // Current round entry
-  const [roundScore, setRoundScore] = useState('');
-  const [dart1, setDart1] = useState('');
-  const [dart2, setDart2] = useState('');
-  const [dart3, setDart3] = useState('');
+  // Dart entry state
+  const [currentDarts, setCurrentDarts] = useState<DartEntry[]>([]);
+  const [currentDartIndex, setCurrentDartIndex] = useState(0);
 
   // Update parent with data
   useEffect(() => {
@@ -73,48 +72,133 @@ export function X01LiveTracker({
     }
   }, [currentScores, rounds]);
 
-  // Auto-calculate round score from darts
-  useEffect(() => {
-    const d1 = parseInt(dart1) || 0;
-    const d2 = parseInt(dart2) || 0;
-    const d3 = parseInt(dart3) || 0;
-    const total = d1 + d2 + d3;
-    if (total > 0) {
-      setRoundScore(String(total));
-    }
-  }, [dart1, dart2, dart3]);
-
-  const handleRecordRound = () => {
-    const score = parseInt(roundScore) || 0;
-
-    if (score === 0) {
-      Alert.alert('Invalid Score', 'Please enter a score greater than 0');
+  const handleNumberTap = (number: number) => {
+    console.log('[X01] handleNumberTap called - number:', number, 'hasWinner:', hasWinner, 'currentDarts:', currentDarts.length);
+    if (hasWinner) {
+      console.log('[X01] Blocked - game has winner');
       return;
     }
 
-    const currentRemaining = currentScores[activePlayerIndex];
+    // Special handling for Bull
+    const isBull = number === 25;
 
-    // Check if player busted (scored more than remaining)
-    const isBust = score > currentRemaining;
+    const multiplierOptions = isBull
+      ? [
+          {
+            text: 'Single Bull (25 points)',
+            onPress: () => handleMultiplierSelect(number, 1),
+          },
+          {
+            text: 'Double Bull (50 points)',
+            onPress: () => handleMultiplierSelect(number, 2),
+          },
+          {
+            text: 'Miss (0 points)',
+            onPress: () => handleMultiplierSelect(0, 1),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel' as const,
+          },
+        ]
+      : [
+          {
+            text: `Single (${number} points)`,
+            onPress: () => handleMultiplierSelect(number, 1),
+          },
+          {
+            text: `Double (${number * 2} points)`,
+            onPress: () => handleMultiplierSelect(number, 2),
+          },
+          {
+            text: `Triple (${number * 3} points)`,
+            onPress: () => handleMultiplierSelect(number, 3),
+          },
+          {
+            text: 'Miss (0 points)',
+            onPress: () => handleMultiplierSelect(0, 1),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel' as const,
+          },
+        ];
+
+    Alert.alert(
+      'Select Dart Type',
+      `Dart ${currentDartIndex + 1} for ${participants[activePlayerIndex].firstName}`,
+      multiplierOptions
+    );
+  };
+
+  const handleMultiplierSelect = (number: number, multiplier: number) => {
+    console.log('[X01] handleMultiplierSelect - number:', number, 'multiplier:', multiplier);
+    const points = number * multiplier;
+    console.log('[X01] Calculated points:', points);
+
+    const newDart: DartEntry = {
+      number,
+      multiplier,
+      points,
+    };
+
+    const updatedDarts = [...currentDarts, newDart];
+    console.log('[X01] Updated darts:', updatedDarts);
+    setCurrentDarts(updatedDarts);
+    setCurrentDartIndex(currentDartIndex + 1);
+
+    // Calculate running total
+    const totalPoints = updatedDarts.reduce((sum, d) => sum + d.points, 0);
+    const currentRemaining = currentScores[activePlayerIndex];
+    const newRemaining = currentRemaining - totalPoints;
+
+    // Check for checkout (exact 0)
+    if (newRemaining === 0) {
+      // Checkout! Record round immediately
+      recordRoundFromDarts(updatedDarts, true, false);
+      return;
+    }
+
+    // Check for bust (over)
+    if (newRemaining < 0) {
+      // Bust! Record round immediately
+      Alert.alert(
+        'Bust!',
+        `Total (${totalPoints}) exceeds remaining score (${currentRemaining}). Turn ends.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => recordRoundFromDarts(updatedDarts, false, true),
+          },
+        ]
+      );
+      return;
+    }
+
+    // If 3 darts entered, auto-record
+    if (updatedDarts.length === 3) {
+      recordRoundFromDarts(updatedDarts, false, false);
+    }
+  };
+
+  const recordRoundFromDarts = (
+    darts: DartEntry[],
+    isCheckout: boolean,
+    isBust: boolean
+  ) => {
+    console.log('[X01] recordRoundFromDarts called - darts:', darts, 'isCheckout:', isCheckout, 'isBust:', isBust);
+    const totalScore = darts.reduce((sum, d) => sum + d.points, 0);
+    const currentRemaining = currentScores[activePlayerIndex];
+    console.log('[X01] totalScore:', totalScore, 'currentRemaining:', currentRemaining);
 
     // Calculate new remaining score
-    // If bust, score stays the same. Otherwise, subtract the score.
-    const newRemaining = isBust ? currentRemaining : currentRemaining - score;
-
-    // Check for valid checkout (must finish on exactly 0, can't bust on checkout)
-    const isCheckout = !isBust && newRemaining === 0;
-
-    // Collect dart values
-    const darts: number[] = [];
-    if (dart1) darts.push(parseInt(dart1) || 0);
-    if (dart2) darts.push(parseInt(dart2) || 0);
-    if (dart3) darts.push(parseInt(dart3) || 0);
+    const newRemaining = isBust ? currentRemaining : currentRemaining - totalScore;
 
     const newRound: X01Round = {
       playerIndex: activePlayerIndex,
-      score: isBust ? 0 : score, // Record 0 score if bust
+      score: isBust ? 0 : totalScore,
       remainingScore: newRemaining,
-      darts: darts.length > 0 ? darts : [],
+      darts: darts.map(d => d.points), // Store individual dart points
       isCheckout,
       isBust,
       timestamp: Date.now(),
@@ -128,13 +212,11 @@ export function X01LiveTracker({
     // Add round
     setRounds(prev => [...prev, newRound]);
 
-    // Reset inputs
-    setRoundScore('');
-    setDart1('');
-    setDart2('');
-    setDart3('');
+    // Reset dart entry
+    setCurrentDarts([]);
+    setCurrentDartIndex(0);
 
-    // Move to next player (unless someone won)
+    // Move to next player (unless checkout)
     if (!isCheckout) {
       const nextPlayer = (activePlayerIndex + 1) % participants.length;
       setActivePlayerIndex(nextPlayer);
@@ -230,62 +312,213 @@ export function X01LiveTracker({
               {participants[activePlayerIndex].firstName}'s Turn
             </Heading>
 
-            {/* Round Score Entry */}
-            <FormControl>
-              <FormControlLabel>
-                <FormControlLabelText>Round Score</FormControlLabelText>
-              </FormControlLabel>
-              <Input variant="outline" size="lg">
-                <InputField
-                  keyboardType="number-pad"
-                  value={roundScore}
-                  onChangeText={setRoundScore}
-                  placeholder="Total score"
-                />
-              </Input>
-            </FormControl>
-
-            {/* Individual Dart Entry (Optional) */}
+            {/* Dart Status Bar */}
             <VStack space="xs">
               <Text size="sm" className="text-typography-600">
-                Individual Darts (Optional)
+                Darts Entered ({currentDarts.length}/3)
               </Text>
-              <HStack space="sm">
-                <Input variant="outline" className="flex-1">
-                  <InputField
-                    keyboardType="number-pad"
-                    value={dart1}
-                    onChangeText={setDart1}
-                    placeholder="Dart 1"
-                  />
-                </Input>
-                <Input variant="outline" className="flex-1">
-                  <InputField
-                    keyboardType="number-pad"
-                    value={dart2}
-                    onChangeText={setDart2}
-                    placeholder="Dart 2"
-                  />
-                </Input>
-                <Input variant="outline" className="flex-1">
-                  <InputField
-                    keyboardType="number-pad"
-                    value={dart3}
-                    onChangeText={setDart3}
-                    placeholder="Dart 3"
-                  />
-                </Input>
+              <HStack space="sm" className="flex-wrap">
+                {currentDarts.map((dart, idx) => (
+                  <Badge
+                    key={idx}
+                    size="md"
+                    action={dart.points === 0 ? "muted" : "info"}
+                  >
+                    <BadgeText>
+                      Dart {idx + 1}: {dart.points === 0
+                        ? 'Miss'
+                        : dart.number === 25
+                          ? `${dart.multiplier === 2 ? 'D' : 'S'}Bull (${dart.points})`
+                          : `${dart.multiplier === 3 ? 'T' : dart.multiplier === 2 ? 'D' : 'S'}${dart.number} (${dart.points})`
+                      }
+                    </BadgeText>
+                  </Badge>
+                ))}
+                {currentDarts.length === 0 && (
+                  <Text size="sm" className="text-typography-400 italic">
+                    Tap a number to enter Dart 1
+                  </Text>
+                )}
+              </HStack>
+              {currentDarts.length > 0 && (
+                <HStack className="items-center" space="xs">
+                  <Text size="sm" className="font-semibold">
+                    Round Total: {currentDarts.reduce((sum, d) => sum + d.points, 0)}
+                  </Text>
+                  <Text size="sm" className="text-typography-500">
+                    | Remaining: {currentScores[activePlayerIndex] - currentDarts.reduce((sum, d) => sum + d.points, 0)}
+                  </Text>
+                </HStack>
+              )}
+            </VStack>
+
+            {/* Number Selection Grid */}
+            <VStack space="xs">
+              <Text size="sm" className="text-typography-600 font-semibold">
+                {currentDarts.length < 3 ? `Select number for Dart ${currentDartIndex + 1}` : 'All darts entered'}
+              </Text>
+
+              {/* Row 1: 20-16 */}
+              <HStack space="xs">
+                {[20, 19, 18, 17, 16].map(num => (
+                  <Pressable
+                    key={num}
+                    onPress={() => handleNumberTap(num)}
+                    disabled={currentDarts.length >= 3}
+                    className={`flex-1 p-4 rounded-lg items-center justify-center border-2 ${
+                      currentDarts.length >= 3
+                        ? 'bg-background-200 border-outline-200'
+                        : 'bg-background-0 border-primary-500'
+                    }`}
+                  >
+                    <Text
+                      size="lg"
+                      className={`font-bold ${
+                        currentDarts.length >= 3
+                          ? 'text-typography-400'
+                          : 'text-primary-600'
+                      }`}
+                    >
+                      {num}
+                    </Text>
+                  </Pressable>
+                ))}
+              </HStack>
+
+              {/* Row 2: 15-11 */}
+              <HStack space="xs">
+                {[15, 14, 13, 12, 11].map(num => (
+                  <Pressable
+                    key={num}
+                    onPress={() => handleNumberTap(num)}
+                    disabled={currentDarts.length >= 3}
+                    className={`flex-1 p-4 rounded-lg items-center justify-center border-2 ${
+                      currentDarts.length >= 3
+                        ? 'bg-background-200 border-outline-200'
+                        : 'bg-background-0 border-primary-500'
+                    }`}
+                  >
+                    <Text
+                      size="lg"
+                      className={`font-bold ${
+                        currentDarts.length >= 3
+                          ? 'text-typography-400'
+                          : 'text-primary-600'
+                      }`}
+                    >
+                      {num}
+                    </Text>
+                  </Pressable>
+                ))}
+              </HStack>
+
+              {/* Row 3: 10-6 */}
+              <HStack space="xs">
+                {[10, 9, 8, 7, 6].map(num => (
+                  <Pressable
+                    key={num}
+                    onPress={() => handleNumberTap(num)}
+                    disabled={currentDarts.length >= 3}
+                    className={`flex-1 p-4 rounded-lg items-center justify-center border-2 ${
+                      currentDarts.length >= 3
+                        ? 'bg-background-200 border-outline-200'
+                        : 'bg-background-0 border-primary-500'
+                    }`}
+                  >
+                    <Text
+                      size="lg"
+                      className={`font-bold ${
+                        currentDarts.length >= 3
+                          ? 'text-typography-400'
+                          : 'text-primary-600'
+                      }`}
+                    >
+                      {num}
+                    </Text>
+                  </Pressable>
+                ))}
+              </HStack>
+
+              {/* Row 4: 5-0 */}
+              <HStack space="xs">
+                {[5, 4, 3, 2, 1, 0].map(num => (
+                  <Pressable
+                    key={num}
+                    onPress={() => handleNumberTap(num)}
+                    disabled={currentDarts.length >= 3}
+                    className={`flex-1 p-4 rounded-lg items-center justify-center border-2 ${
+                      currentDarts.length >= 3
+                        ? 'bg-background-200 border-outline-200'
+                        : 'bg-background-0 border-primary-500'
+                    }`}
+                  >
+                    <Text
+                      size="lg"
+                      className={`font-bold ${
+                        currentDarts.length >= 3
+                          ? 'text-typography-400'
+                          : 'text-primary-600'
+                      }`}
+                    >
+                      {num}
+                    </Text>
+                  </Pressable>
+                ))}
+              </HStack>
+
+              {/* Row 5: Bull */}
+              <HStack className="justify-center">
+                <Pressable
+                  onPress={() => handleNumberTap(25)}
+                  disabled={currentDarts.length >= 3}
+                  className={`p-4 rounded-lg items-center justify-center border-2 ${
+                    currentDarts.length >= 3
+                      ? 'bg-background-200 border-outline-200'
+                      : 'bg-error-500 border-error-600'
+                  }`}
+                  style={{ width: '33%' }}
+                >
+                  <Text
+                    size="lg"
+                    className={`font-bold ${
+                      currentDarts.length >= 3
+                        ? 'text-typography-400'
+                        : 'text-typography-0'
+                    }`}
+                  >
+                    BULL
+                  </Text>
+                </Pressable>
               </HStack>
             </VStack>
 
-            <Button
-              action="primary"
-              size="lg"
-              onPress={handleRecordRound}
-              isDisabled={!roundScore || parseInt(roundScore) === 0}
-            >
-              <ButtonText>Record Round</ButtonText>
-            </Button>
+            {/* Reset Turn Button (optional - for mistakes) */}
+            {currentDarts.length > 0 && currentDarts.length < 3 && (
+              <Button
+                action="secondary"
+                variant="outline"
+                size="sm"
+                onPress={() => {
+                  Alert.alert(
+                    'Reset Turn?',
+                    'Clear all darts entered for this turn?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Reset',
+                        style: 'destructive',
+                        onPress: () => {
+                          setCurrentDarts([]);
+                          setCurrentDartIndex(0);
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <ButtonText>Reset Turn</ButtonText>
+              </Button>
+            )}
           </VStack>
         </Card>
       )}
