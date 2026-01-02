@@ -187,6 +187,7 @@ export default function AddPlayers() {
                   placeholder="Search players..."
                   value={searchQuery}
                   onChangeText={setSearchQuery}
+                  returnKeyType="done"
                 />
               </Input>
 

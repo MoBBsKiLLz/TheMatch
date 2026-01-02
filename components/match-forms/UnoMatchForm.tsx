@@ -249,6 +249,7 @@ export function UnoMatchForm({
                         updateCurrentGameScore(index, Math.max(0, value));
                       }}
                       keyboardType="number-pad"
+                      returnKeyType="done"
                     />
                   </Input>
                 </FormControl>

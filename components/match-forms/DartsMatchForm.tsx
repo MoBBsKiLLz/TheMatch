@@ -238,6 +238,7 @@ export function DartsMatchForm({
                   value={String(scores[index] || 0)}
                   onChangeText={(v) => updateScore(index, parseInt(v) || 0)}
                   placeholder="0"
+                  returnKeyType="done"
                 />
               </Input>
             </FormControl>
@@ -296,6 +297,7 @@ export function DartsMatchForm({
                   value={String(points[index] || 0)}
                   onChangeText={(v) => updatePoints(index, parseInt(v) || 0)}
                   placeholder="0"
+                  returnKeyType="done"
                 />
               </Input>
             </FormControl>

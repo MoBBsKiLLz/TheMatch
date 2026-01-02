@@ -100,6 +100,7 @@ export function SearchableSelect({
                 onChangeText={setSearchQuery}
                 autoFocus={false}
                 className="flex-1"
+                returnKeyType="done"
               />
             </Input>
           </VStack>
