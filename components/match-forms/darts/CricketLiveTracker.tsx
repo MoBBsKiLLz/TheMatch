@@ -63,6 +63,7 @@ export function CricketLiveTracker({
 
   const [rounds, setRounds] = useState<CricketRound[]>([]);
   const [accordionValue, setAccordionValue] = useState<string[]>([]);
+  const [activePlayerIndex, setActivePlayerIndex] = useState(0);
 
   // Update parent with data
   useEffect(() => {
@@ -189,6 +190,11 @@ export function CricketLiveTracker({
     });
   };
 
+  const handleEndTurn = () => {
+    // Advance to next player
+    setActivePlayerIndex((prev) => (prev + 1) % participants.length);
+  };
+
   const handleUndoLastRound = () => {
     if (rounds.length === 0) return;
 
@@ -201,9 +207,14 @@ export function CricketLiveTracker({
           text: 'Undo',
           style: 'destructive',
           onPress: () => {
+            const lastRound = rounds[rounds.length - 1];
+
             // Remove last round and recalculate states from scratch
             const newRounds = rounds.slice(0, -1);
             setRounds(newRounds);
+
+            // Set active player back to the one who just had their round removed
+            setActivePlayerIndex(lastRound.playerIndex);
 
             // Rebuild player states from rounds
             const freshStates: CricketPlayerState[] = participants.map(() => ({
@@ -317,12 +328,22 @@ export function CricketLiveTracker({
               <Box style={{ width: 60 }} className="p-2 items-center justify-center">
                 <Text className="font-bold" size="sm">#</Text>
               </Box>
-              {participants.map(p => (
+              {participants.map((p, idx) => (
                 <Box
                   key={p.playerId}
-                  className="flex-1 p-2 items-center justify-center border-l border-outline-200"
+                  className={`flex-1 p-2 items-center justify-center border-l ${
+                    idx === activePlayerIndex && !hasWinner
+                      ? 'border-primary-500 border-2 bg-primary-50'
+                      : 'border-outline-200'
+                  }`}
                 >
-                  <Text numberOfLines={1} className="font-semibold" size="sm">
+                  <Text
+                    numberOfLines={1}
+                    className={`font-semibold ${
+                      idx === activePlayerIndex && !hasWinner ? 'text-primary-600' : ''
+                    }`}
+                    size="sm"
+                  >
                     {p.firstName}
                   </Text>
                 </Box>
@@ -393,12 +414,22 @@ export function CricketLiveTracker({
                           handleHit(idx, num, 1);
                         }
                       }}
-                      disabled={isClosed || hasWinner}
-                      className="flex-1 border-l border-outline-200"
+                      disabled={isClosed || hasWinner || idx !== activePlayerIndex}
+                      className={`flex-1 border-l ${
+                        idx === activePlayerIndex && !hasWinner && !isClosed
+                          ? 'border-primary-500 border-2'
+                          : 'border-outline-200'
+                      }`}
                     >
                       <Box
                         className={`p-3 items-center justify-center min-h-[50px] ${
-                          isClosed ? 'bg-background-200' : ''
+                          isClosed
+                            ? 'bg-background-200'
+                            : idx === activePlayerIndex && !hasWinner
+                              ? 'bg-primary-50'
+                              : idx !== activePlayerIndex && !hasWinner
+                                ? 'bg-background-100 opacity-50'
+                                : ''
                         }`}
                       >
                         <Text
@@ -450,6 +481,41 @@ export function CricketLiveTracker({
         </Text>
       </VStack>
 
+      {/* Active Player Indicator & End Turn Button */}
+      {!hasWinner && (
+        <Card variant="outline" className="p-4 bg-primary-50">
+          <VStack space="md">
+            <HStack className="justify-between items-center">
+              <VStack>
+                <Text size="sm" className="text-typography-600">
+                  Current Turn
+                </Text>
+                <Text className="font-bold text-lg text-primary-600">
+                  {participants[activePlayerIndex].firstName}
+                </Text>
+              </VStack>
+              <Button
+                action="primary"
+                size="md"
+                onPress={handleEndTurn}
+              >
+                <ButtonText>End Turn</ButtonText>
+              </Button>
+            </HStack>
+            {rounds.length > 0 && (
+              <Button
+                action="negative"
+                variant="outline"
+                size="sm"
+                onPress={handleUndoLastRound}
+              >
+                <ButtonText>Undo Last Hit</ButtonText>
+              </Button>
+            )}
+          </VStack>
+        </Card>
+      )}
+
       {/* Round History */}
       {rounds.length > 0 && (
         <Accordion
@@ -494,14 +560,6 @@ export function CricketLiveTracker({
                     </HStack>
                   </Card>
                 ))}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  action="negative"
-                  onPress={handleUndoLastRound}
-                >
-                  <ButtonText>Undo Last Round</ButtonText>
-                </Button>
               </VStack>
             </AccordionContent>
           </AccordionItem>
