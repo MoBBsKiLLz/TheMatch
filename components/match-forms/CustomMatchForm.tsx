@@ -274,6 +274,7 @@ export function CustomMatchForm({
                       }
                     }}
                     keyboardType={config.allowNegativeScores ? 'default' : 'number-pad'}
+                    returnKeyType="done"
                   />
                 </Input>
               </FormControl>
@@ -322,6 +323,7 @@ export function CustomMatchForm({
                       setGames([newGame]);
                     }}
                     keyboardType={config.allowNegativeScores ? 'default' : 'number-pad'}
+                    returnKeyType="done"
                   />
                 </Input>
               </FormControl>

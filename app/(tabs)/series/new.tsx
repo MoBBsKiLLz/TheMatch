@@ -163,6 +163,7 @@ export default function NewSeries() {
                 placeholder="e.g., Best of 3 with John"
                 value={name}
                 onChangeText={setName}
+                returnKeyType="done"
               />
             </Input>
             {errors.name && (
@@ -183,6 +184,7 @@ export default function NewSeries() {
                 onChangeText={setDescription}
                 multiline
                 numberOfLines={3}
+                returnKeyType="done"
               />
             </Input>
           </FormControl>

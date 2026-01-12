@@ -423,6 +423,7 @@ export default function NewLeague() {
                 }}
                 keyboardType="number-pad"
                 editable={!isSubmitting}
+                returnKeyType="done"
               />
             </Input>
             <Text size="xs" className="text-typography-400 mt-1">

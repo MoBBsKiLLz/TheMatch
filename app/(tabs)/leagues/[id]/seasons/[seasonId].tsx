@@ -631,6 +631,7 @@ export default function SeasonDetail() {
                                 placeholder="Search players..."
                                 value={playerSearchQuery}
                                 onChangeText={setPlayerSearchQuery}
+                                returnKeyType="done"
                               />
                             </Input>
 

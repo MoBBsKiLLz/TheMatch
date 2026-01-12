@@ -244,6 +244,7 @@ export default function NewCustomGame() {
                   placeholder="e.g., Cornhole, Foosball, Ping Pong"
                   value={name}
                   onChangeText={setName}
+                  returnKeyType="done"
                 />
               </Input>
               {errors.name && (
@@ -263,6 +264,7 @@ export default function NewCustomGame() {
                   placeholder="Brief description of the game"
                   value={description}
                   onChangeText={setDescription}
+                  returnKeyType="done"
                 />
               </Input>
             </FormControl>
@@ -348,6 +350,7 @@ export default function NewCustomGame() {
                   value={targetValue}
                   onChangeText={setTargetValue}
                   keyboardType="number-pad"
+                  returnKeyType="done"
                 />
               </Input>
               {errors.targetValue && (
@@ -369,6 +372,7 @@ export default function NewCustomGame() {
                     value={minPlayers}
                     onChangeText={setMinPlayers}
                     keyboardType="number-pad"
+                    returnKeyType="done"
                   />
                 </Input>
                 {errors.minPlayers && (
@@ -388,6 +392,7 @@ export default function NewCustomGame() {
                     value={maxPlayers}
                     onChangeText={setMaxPlayers}
                     keyboardType="number-pad"
+                    returnKeyType="done"
                   />
                 </Input>
                 {errors.maxPlayers && (
@@ -446,6 +451,7 @@ export default function NewCustomGame() {
                     value={pointsPerWin}
                     onChangeText={setPointsPerWin}
                     keyboardType="number-pad"
+                    returnKeyType="done"
                   />
                 </Input>
                 <FormControlHelper>

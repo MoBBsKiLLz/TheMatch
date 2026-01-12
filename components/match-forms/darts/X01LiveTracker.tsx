@@ -512,9 +512,9 @@ export function X01LiveTracker({
                 ))}
               </HStack>
 
-              {/* Row 4: 5-0 */}
+              {/* Row 4: 5-1 */}
               <HStack space="xs">
-                {[5, 4, 3, 2, 1, 0].map(num => (
+                {[5, 4, 3, 2, 1].map(num => (
                   <Pressable
                     key={num}
                     onPress={() => handleNumberTap(num)}
@@ -539,8 +539,8 @@ export function X01LiveTracker({
                 ))}
               </HStack>
 
-              {/* Row 5: Bull */}
-              <HStack className="justify-center">
+              {/* Row 5: Bull and Miss */}
+              <HStack space="xs" className="justify-center">
                 <Pressable
                   onPress={() => handleNumberTap(25)}
                   disabled={currentDarts.length >= 3}
@@ -560,6 +560,27 @@ export function X01LiveTracker({
                     }`}
                   >
                     BULL
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => handleNumberTap(0)}
+                  disabled={currentDarts.length >= 3}
+                  className={`p-4 rounded-lg items-center justify-center border-2 ${
+                    currentDarts.length >= 3
+                      ? 'bg-background-200 border-outline-200'
+                      : 'bg-background-0 border-primary-500'
+                  }`}
+                  style={{ width: '33%' }}
+                >
+                  <Text
+                    size="lg"
+                    className={`font-bold ${
+                      currentDarts.length >= 3
+                        ? 'text-typography-400'
+                        : 'text-primary-600'
+                    }`}
+                  >
+                    MISS
                   </Text>
                 </Pressable>
               </HStack>
@@ -607,6 +628,7 @@ export function X01LiveTracker({
                     value={roundTotalInput}
                     onChangeText={setRoundTotalInput}
                     placeholder="Total score"
+                    returnKeyType="done"
                   />
                 </Input>
                 <HStack className="items-center" space="xs">

@@ -209,6 +209,7 @@ export function DominosMatchForm({
                   updateCurrentGameScore(index, Math.max(0, value));
                 }}
                 keyboardType="number-pad"
+                returnKeyType="done"
               />
             </Input>
           </FormControl>
@@ -235,6 +236,7 @@ export function DominosMatchForm({
                   updateCurrentGamePips(index, Math.max(0, value));
                 }}
                 keyboardType="number-pad"
+                returnKeyType="done"
               />
             </Input>
           </FormControl>
